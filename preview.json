@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.4",
+  "version": "5.9.0-rc.5",
   "channel": "preview",
-  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.4/GW2-Account-Companion-v5.9.0-rc.4-All-in-One.zip",
-  "sha256": "8f0909fefab57ef814a210d5cff9377dd69f0f4474b2fe471abdb4107b9b0ae7",
-  "bytes": 462473,
-  "min_updater_version": "5.9.0-rc.3",
+  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.5/GW2-Account-Companion-v5.9.0-rc.5-All-in-One.zip",
+  "sha256": "402714d2d19377021712902a4c26d8d2ae32387ef9939096b30f14d793988e27",
+  "bytes": 475021,
+  "min_updater_version": "5.9.0-rc.4",
   "changelog": "",
-  "signature": "9UB9l8W14D7rztmLRGfskqIuR0i/BL33pTarmMsUyd3x38+vdoP6Hy0kA2APlNdoMYN6rTa4Z3GX/B78iSYnAA=="
+  "signature": "WvBAnv11eyFnovs3OpeQZwsYdw34QFVIG19bB5Kraf+1somCx0Q+Xn9a4hnpSHV2Q7nOd0i5nozaVRklER1iCQ=="
 }
