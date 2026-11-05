@@ -1,0 +1,98 @@
+name: Publish RC6 fixed-path release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-rc6.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gw2-rc6-publish
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out public update repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Install Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Go compiler for Windows starter and migrator
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.2'
+          cache: false
+      - name: Download and verify published RC5 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work dist
+          curl --fail --silent --show-error --location --retry 3 --proto '=https' --tlsv1.2 \
+            'https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.5/GW2-Account-Companion-v5.9.0-rc.5-All-in-One.zip' -o work/rc5.zip
+          echo '402714d2d19377021712902a4c26d8d2ae32387ef9939096b30f14d793988e27  work/rc5.zip' | sha256sum -c -
+      - name: Apply reviewed change delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd work
+          unzip -q rc5.zip
+          mv GW2-Account-Companion-v5.9.0-rc.5 source
+          cd ..
+          cat .github/rc6-overlay/part*.txt | base64 -d > work/delta.gz
+          echo '5b113819ebf47aa4caf66854f57d415ac65f626caefe489a62730bf94279dfcc  work/delta.gz' | sha256sum -c -
+          gzip -dc work/delta.gz > work/delta.patch
+          (cd work/source && git apply --check ../delta.patch && git apply ../delta.patch)
+      - name: Full automated regression suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd work/source
+          node --test tests/*.test.mjs
+      - name: Reproducible source ZIP must match independently reviewed SHA256
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 work/source/tools/build-release.py dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip
+          echo '770bc6c77eadaba41665f56ea8f0d1f2c029c60cba2f4beff146a8dd3b43afaa  dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip' | sha256sum -c -
+      - name: Build Windows starter and migration EXE
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd work/source/tools/windows-fixed
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags '-s -w -H windowsgui' -tags launcher -o launcher.exe launcher.go
+          cp ../../../../dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip payload.zip
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -trimpath \
+            -ldflags '-s -w -H windowsgui -X main.expectedSHA256=770bc6c77eadaba41665f56ea8f0d1f2c029c60cba2f4beff146a8dd3b43afaa' \
+            -o ../../../../dist/GW2-Account-Companion-RC6-Migration-Setup.exe main.go
+          cd ../../../..
+          sha256sum dist/GW2-Account-Companion-RC6-Migration-Setup.exe > dist/GW2-Account-Companion-RC6-Migration-Setup.exe.sha256
+      - name: Publish checked RC6 prerelease (never overwrite)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view v5.9.0-rc.6 >/dev/null 2>&1; then
+            echo 'RC6 already published. Refusing overwrite.' >&2
+            exit 1
+          fi
+          gh release create v5.9.0-rc.6 \
+            dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip \
+            dist/GW2-Account-Companion-RC6-Migration-Setup.exe \
+            dist/GW2-Account-Companion-RC6-Migration-Setup.exe.sha256 \
+            --title 'GW2 Companion v5.9.0-rc.6 (Fixed Install)' \
+            --notes-file work/source/CHANGELOG-v5.9.0-rc.6.md \
+            --prerelease \
+            --target "$GITHUB_SHA"
+
+# Signing is not performed here: Ed25519 private key remains exclusively local.
+# The public preview.json feed is not modified automatically.
