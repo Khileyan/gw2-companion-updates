@@ -49,7 +49,7 @@ jobs:
           cat .github/rc6-overlay/part*.txt | base64 -d > work/delta.gz
           echo '5b113819ebf47aa4caf66854f57d415ac65f626caefe489a62730bf94279dfcc  work/delta.gz' | sha256sum -c -
           gzip -dc work/delta.gz > work/delta.patch
-          (cd work/source && git apply --check ../delta.patch && git apply ../delta.patch)
+          (cd work/source && git init -q && git apply --check ../delta.patch && git apply ../delta.patch)
       - name: Full automated regression suite
         shell: bash
         run: |
@@ -62,7 +62,7 @@ jobs:
           set -euo pipefail
           grep '^VERSION=' work/source/tools/build-release.py
           grep '"version"' work/source/app/package.json | head -1
-          test "$(sed -n \"s/^VERSION='\\(.*\\)'$/\\1/p\" work/source/tools/build-release.py)" = '5.9.0-rc.6'
+          grep -F "VERSION='5.9.0-rc.6'" work/source/tools/build-release.py
           python3 work/source/tools/build-release.py dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip
           echo '770bc6c77eadaba41665f56ea8f0d1f2c029c60cba2f4beff146a8dd3b43afaa  dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip' | sha256sum -c -
       - name: Build Windows starter and migration EXE
