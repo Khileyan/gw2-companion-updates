@@ -1,0 +1,99 @@
+name: Publish RC5 (reproducible, verified)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gw2-rc5-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out update-distribution repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Install Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Download verified public RC4 build
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work dist
+          curl --fail --location --silent --show-error --retry 3 --proto '=https' --tlsv1.2 \
+            'https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.4/GW2-Account-Companion-v5.9.0-rc.4-All-in-One.zip' \
+            --output work/rc4.zip
+          printf '%s  %s\n' '8f0909fefab57ef814a210d5cff9377dd69f0f4474b2fe471abdb4107b9b0ae7' 'work/rc4.zip' | sha256sum --check -
+
+      - name: Assemble RC5 source and verify signed-off change bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          root=Path('work/source').resolve()
+          root.mkdir(parents=True,exist_ok=True)
+          with ZipFile('work/rc4.zip') as z:
+              for entry in z.infolist():
+                  if entry.is_dir():
+                      continue
+                  parts=Path(entry.filename).parts
+                  if len(parts)<2 or parts[0]!='GW2-Account-Companion-v5.9.0-rc.4' or '..' in parts:
+                      raise SystemExit('Unexpected path in verified RC4')
+                  dest=root.joinpath(*parts[1:])
+                  dest.parent.mkdir(parents=True,exist_ok=True)
+                  dest.write_bytes(z.read(entry))
+          PY
+          cat .github/rc5-overlay/part*.txt | base64 --decode | gzip --decompress > work/rc5.patch
+          printf '%s  %s\n' '2dde0dd22644b032cda421b2c054549110f446f77f6c1486e849a4512d88bbcc' /dev/stdin > /dev/null
+          # Verify compressed patch independently before applying:
+          cat .github/rc5-overlay/part*.txt | base64 --decode | sha256sum | grep -q '^2dde0dd22644b032cda421b2c054549110f446f77f6c1486e849a4512d88bbcc  -$'
+          (cd work/source && git apply --check ../rc5.patch && git apply ../rc5.patch)
+          test "$(grep -o '5.9.0-rc.5' work/source/app/package.json | wc -l)" -ge 1
+
+      - name: Run complete automated suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd work/source
+          node --test tests/*.test.mjs
+
+      - name: Produce and verify exact reviewed RC5 build
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 work/source/tools/build-release.py dist/GW2-Account-Companion-v5.9.0-rc.5-All-in-One.zip
+          printf '%s  %s\n' '402714d2d19377021712902a4c26d8d2ae32387ef9939096b30f14d793988e27' 'dist/GW2-Account-Companion-v5.9.0-rc.5-All-in-One.zip' | sha256sum --check -
+
+      - name: Create verified RC5 prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if gh release view 'v5.9.0-rc.5' >/dev/null 2>&1; then
+            echo 'RC5 release already exists. Refusing to overwrite.' >&2
+            exit 1
+          fi
+          gh release create 'v5.9.0-rc.5' \
+            'dist/GW2-Account-Companion-v5.9.0-rc.5-All-in-One.zip' \
+            --title 'GW2 Companion v5.9.0-rc.5' \
+            --notes-file 'releases/v5.9.0-rc.5.md' \
+            --prerelease \
+            --target "$GITHUB_SHA"
+
+# IMPORTANT:
+# This workflow publishes only the SHA-256-verified RC5 ZIP. It never receives
+# the owner's publisher-private.pem and does not sign or modify preview.json.
+# The owner's separate, locally signed Ed25519 manifest is still required
+# before Windows clients can offer the update.
