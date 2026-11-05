@@ -2,6 +2,10 @@ name: Publish RC5 (reproducible, verified)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-rc5.yml'
 
 permissions:
   contents: write
@@ -54,7 +58,6 @@ jobs:
                   dest.write_bytes(z.read(entry))
           PY
           cat .github/rc5-overlay/part*.txt | base64 --decode | gzip --decompress > work/rc5.patch
-          printf '%s  %s\n' '2dde0dd22644b032cda421b2c054549110f446f77f6c1486e849a4512d88bbcc' /dev/stdin > /dev/null
           # Verify compressed patch independently before applying:
           cat .github/rc5-overlay/part*.txt | base64 --decode | sha256sum | grep -q '^2dde0dd22644b032cda421b2c054549110f446f77f6c1486e849a4512d88bbcc  -$'
           (cd work/source && git apply --check ../rc5.patch && git apply ../rc5.patch)
