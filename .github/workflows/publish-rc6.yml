@@ -60,6 +60,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          grep '^VERSION=' work/source/tools/build-release.py
+          grep '"version"' work/source/app/package.json | head -1
+          test "$(sed -n \"s/^VERSION='\\(.*\\)'$/\\1/p\" work/source/tools/build-release.py)" = '5.9.0-rc.6'
           python3 work/source/tools/build-release.py dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip
           echo '770bc6c77eadaba41665f56ea8f0d1f2c029c60cba2f4beff146a8dd3b43afaa  dist/GW2-Account-Companion-v5.9.0-rc.6-All-in-One.zip' | sha256sum -c -
       - name: Build Windows starter and migration EXE
