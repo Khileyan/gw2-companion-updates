@@ -38,7 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           base64 --decode .github/rc8-overlay/patch.gz.b64 > work/rc8.patch.gz
-          echo '2c95528757b6640e0a170990c4bfe07fd3e37f234ee570c3ec41649f4d5f8a42  work/rc8.patch.gz' | sha256sum -c -
+          echo '6ba7a438a51cfa1c0dbd9839821890cd6eb44e5114e5ef9e9a81383c5c6aa61f  work/rc8.patch.gz' | sha256sum -c -
           gzip -dc work/rc8.patch.gz > work/rc8.patch
           echo '2c95528757b6640e0a170990c4bfe07fd3e37f234ee570c3ec41649f4d5f8a42  work/rc8.patch' | sha256sum -c -
           (cd work/source && git init -q && git apply --check ../rc8.patch && git apply ../rc8.patch)
@@ -80,10 +80,10 @@ jobs:
         id: signing
         shell: bash
         env:
-          PRIVATE_KEY_BASE64: ${{ secrets.GW2_ED25519_SIGNING_KEY_B64 }}
+          PRIVATE_KEY_PEM: ${{ secrets.GW2_ED25519_SIGNING_KEY_PEM }}
         run: |
           set -euo pipefail
-          if [ -z "$PRIVATE_KEY_BASE64" ]; then
+          if [ -z "$PRIVATE_KEY_PEM" ]; then
             echo 'Not publishing: no owner-authorized signing key is configured.'
             echo 'enabled=false' >> "$GITHUB_OUTPUT"
           else
@@ -93,13 +93,13 @@ jobs:
         if: steps.signing.outputs.enabled == 'true'
         shell: bash
         env:
-          PRIVATE_KEY_BASE64: ${{ secrets.GW2_ED25519_SIGNING_KEY_B64 }}
+          PRIVATE_KEY_PEM: ${{ secrets.GW2_ED25519_SIGNING_KEY_PEM }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           trap 'rm -f "$RUNNER_TEMP/publisher-private.pem"' EXIT
           umask 077
-          printf '%s' "$PRIVATE_KEY_BASE64" | base64 --decode > "$RUNNER_TEMP/publisher-private.pem"
+          printf '%s\n' "$PRIVATE_KEY_PEM" > "$RUNNER_TEMP/publisher-private.pem"
           mkdir -p work/source/config
           cp .github/rc8-overlay/publisher-public.pem work/source/config/publisher-public.pem
           cat > work/source/config/update-source.json <<'JSON'
