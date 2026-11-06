@@ -137,6 +137,6 @@ jobs:
       - name: Run rollback safety regressions on Windows filesystem
         shell: pwsh
         run: |
-          node --test source/tests/rollback-safety.test.mjs
+          node --test source/tests/rollback-safety.test.mjs source/tests/v590-fixed-layout.test.mjs source/tests/v590-background-update-check.test.mjs
 
 # NON-PUBLISHING: no secrets, no GitHub releases, no preview.json updates.
