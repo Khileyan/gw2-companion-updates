@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "version": "5.9.0-rc.8.1",
+  "channel": "preview",
+  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.8.1/GW2-Account-Companion-v5.9.0-rc.8.1-All-in-One.zip",
+  "sha256": "598e84d3eedc4c0fd5e94d699c2116fd58542a5452e159f8fb4e31aa206658da",
+  "bytes": 500589,
+  "min_updater_version": "5.9.0-rc.7",
+  "changelog": "RC8: versionsgenaue Titelleiste, Doppelstart-Erkennung und automatische Update-Benachrichtigung; signierte Release-Veroeffentlichung.",
+  "signature": "Se0CTMJhMSE3EQhwhn4sU6j0y9m9cnHWMndvKg9ptKIBGWk6AvKKzDZf+1xzx8wAauDtDHRJhIeC/76WQ3WLAQ=="
+}
