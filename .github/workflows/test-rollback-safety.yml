@@ -104,4 +104,39 @@ jobs:
           JS
           sha256sum dist/GW2-Account-Companion-v5.9.0-rc.8-All-in-One.zip
 
+      - name: Upload tested source for Windows validation
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: reviewed-rollback-source
+          path: |
+            work/source/bootstrap/
+            work/source/app/
+            work/source/tests/rollback-safety.test.mjs
+          if-no-files-found: error
+
+  windows:
+    needs: verify
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: reviewed-rollback-source
+          path: source
+      - name: Verify Windows PowerShell 5.1 parses the launcher
+        shell: powershell
+        run: |
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path source/bootstrap/Start-Managed.ps1).Path,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count -ne 0){$errors | ForEach-Object {Write-Error $_.Message};exit 1}
+          Write-Host 'PowerShell 5.1 syntax validated'
+      - name: Run rollback safety regressions on Windows filesystem
+        shell: pwsh
+        run: |
+          node --test source/tests/rollback-safety.test.mjs
+
 # NON-PUBLISHING: no secrets, no GitHub releases, no preview.json updates.
