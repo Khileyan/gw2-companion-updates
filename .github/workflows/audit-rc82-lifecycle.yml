@@ -1,0 +1,59 @@
+name: Audit RC8.2 update lifecycle (non-publishing)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit-rc82-lifecycle.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Download and verify immutable RC8.2 release
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --retry 3 --proto '=https' --tlsv1.2 \
+            'https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.8.2/GW2-Account-Companion-v5.9.0-rc.8.2-All-in-One.zip' -o rc82.zip
+          echo '42c89c1f647bd81b646c989c4b9e47a4eb71ce63d222e08eae345b22a8e0ee9e  rc82.zip' | sha256sum -c -
+      - name: Analyze update and launcher lifecycle code
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import zipfile, re
+          from pathlib import PurePosixPath
+          required=[
+            'bootstrap/Update-Progress.ps1',
+            'bootstrap/Start-Managed.ps1',
+            'bootstrap/update-host.mjs',
+            'bootstrap/fixed-update.mjs',
+            'bootstrap/fixed-core.mjs',
+            'launcher/GW2-Companion.ps1',
+          ]
+          with zipfile.ZipFile('rc82.zip') as z:
+            files=z.namelist()
+            for suffix in required:
+              hits=[name for name in files if name.endswith('/'+suffix)]
+              print('\n###',suffix,'found:',len(hits))
+              if len(hits)!=1:
+                raise SystemExit('Missing or duplicate required source: '+suffix)
+              data=z.read(hits[0]).decode('utf-8-sig')
+              lines=data.splitlines()
+              print('Lines:',len(lines))
+              if suffix.endswith(('Update-Progress.ps1','GW2-Companion.ps1','Start-Managed.ps1')):
+                for n,line in enumerate(lines,1):
+                  print(f'{n:04d} {line[:320]}')
+              else:
+                pattern=re.compile(r'progressHost|Start-Process|exit|process|retry|spawn|launch|status|ready|connected|shutdown|catch|finally|rollback|wait',re.I)
+                wanted={j for i,line in enumerate(lines) if pattern.search(line) for j in range(max(0,i-1),min(len(lines),i+2))}
+                for i in sorted(wanted):
+                  print(f'{i+1:04d} {lines[i][:320]}')
+          PY
+      - name: Record audit-only outcome
+        run: echo 'Audit completed; no release generated and no update feed modified.'
