@@ -38,9 +38,9 @@ jobs:
         run: |
           set -euo pipefail
           base64 --decode .github/rc8-overlay/patch.gz.b64 > work/rc8.patch.gz
-          echo '3b49dba1c64721138dab9be5705d8d0bfae3b13cccfbab677c5674de06792d94  work/rc8.patch.gz' | sha256sum -c -
+          echo '2c95528757b6640e0a170990c4bfe07fd3e37f234ee570c3ec41649f4d5f8a42  work/rc8.patch.gz' | sha256sum -c -
           gzip -dc work/rc8.patch.gz > work/rc8.patch
-          echo '74d7f24084dea0dd90a4a95740a2659d36ecab744b86dd41de065b6486ce0c0a  work/rc8.patch' | sha256sum -c -
+          echo '2c95528757b6640e0a170990c4bfe07fd3e37f234ee570c3ec41649f4d5f8a42  work/rc8.patch' | sha256sum -c -
           (cd work/source && git init -q && git apply --check ../rc8.patch && git apply ../rc8.patch)
           grep -F '"version": "5.9.0-rc.8"' work/source/app/package.json
           grep -F '"version": "5.9.0-rc.8"' work/source/app-version.json
