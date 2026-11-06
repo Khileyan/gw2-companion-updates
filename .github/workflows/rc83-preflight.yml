@@ -81,6 +81,7 @@ jobs:
           core.write_text(s[:start]+new+s[end:],encoding='utf-8')
           print('Patched source for isolated verification only; no release published.')
           PY
+          cp .github/rc83-handoff.test.mjs work/source/tests/rc83-handoff.test.mjs
       - name: Check JavaScript syntax, original version, status I/O smoke
         shell: bash
         run: |
@@ -94,6 +95,7 @@ jobs:
           console.log('Atomic status smoke: 100 writes passed');
           JS
           node -e "const p=require('./work/source/app/package.json'); if(p.version!=='5.9.0-rc.8.2')process.exit(1)"
+          (cd work/source && node --test tests/*.test.mjs)
       - name: Upload reviewed RC8.3 candidate source (non-publishing)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -127,6 +129,14 @@ jobs:
           if($hostCode -notmatch 'doneAt=Get-Date'){throw 'Auto-close not scheduled'}
           if($hostCode -notmatch 'TotalSeconds -ge 3'){throw 'Auto-close timer missing'}
           Write-Host 'PowerShell 5.1 syntax and lifecycle checks passed'
+      - name: Full RC8.3 handoff + existing regression suite on Windows
+        shell: powershell
+        run: |
+          Push-Location source
+          try {
+              node --test
+              if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          } finally { Pop-Location }
       - name: Windows atomic status writes
         shell: powershell
         run: |
