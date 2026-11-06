@@ -60,24 +60,24 @@ jobs:
           if start<0 or end<=start or s.count('export function atomicJSON(file,value){')!=1:
               raise SystemExit('Unknown atomicJSON source layout; refusing patch')
           new="""export function atomicJSON(file,value){
- fs.mkdirSync(path.dirname(file),{recursive:true});
- const tmp=file+'.'+process.pid+'.'+crypto.randomBytes(8).toString('hex')+'.tmp';
- const pause=new Int32Array(new SharedArrayBuffer(4));
- try{
-  fs.writeFileSync(tmp,JSON.stringify(value,null,2)+'\\n',{flag:'wx',mode:0o600});
-  for(let attempt=0;attempt<10;attempt++){
-   try{fs.renameSync(tmp,file);return;}
-   catch(e){
-    if(!['EPERM','EACCES','EBUSY'].includes(e.code)||attempt===9)throw e;
-    Atomics.wait(pause,0,0,50*(attempt+1));
-   }
-  }
- }finally{
-  try{fs.rmSync(tmp,{force:true})}
-  catch(e){if(!['EPERM','EACCES','EBUSY'].includes(e.code))throw e;}
- }
-}
-"""
+           fs.mkdirSync(path.dirname(file),{recursive:true});
+           const tmp=file+'.'+process.pid+'.'+crypto.randomBytes(8).toString('hex')+'.tmp';
+           const pause=new Int32Array(new SharedArrayBuffer(4));
+           try{
+            fs.writeFileSync(tmp,JSON.stringify(value,null,2)+'\\n',{flag:'wx',mode:0o600});
+            for(let attempt=0;attempt<10;attempt++){
+             try{fs.renameSync(tmp,file);return;}
+             catch(e){
+              if(!['EPERM','EACCES','EBUSY'].includes(e.code)||attempt===9)throw e;
+              Atomics.wait(pause,0,0,50*(attempt+1));
+             }
+            }
+           }finally{
+            try{fs.rmSync(tmp,{force:true})}
+            catch(e){if(!['EPERM','EACCES','EBUSY'].includes(e.code))throw e;}
+           }
+          }
+          """
           core.write_text(s[:start]+new+s[end:],encoding='utf-8')
           print('Patched source for isolated verification only; no release published.')
           PY
