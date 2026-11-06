@@ -1,6 +1,7 @@
 name: Validate rollback safety fix (non-publishing)
 
 on:
+  workflow_call:
   workflow_dispatch:
   push:
     branches: [main]
