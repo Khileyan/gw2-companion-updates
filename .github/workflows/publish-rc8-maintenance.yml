@@ -1,0 +1,110 @@
+name: Verify and publish RC8.1 rollback maintenance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-rc8-maintenance.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gw2-maintenance-rc8-1
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    uses: ./.github/workflows/test-rollback-safety.yml
+    permissions:
+      contents: read
+
+  release:
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: reviewed-rollback-source
+          path: source
+      - name: Create uniquely versioned RC8 maintenance candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('source')
+          for rel in ['app/package.json','app-version.json','app/engine.mjs','tools/build-release.py']:
+              p=root/rel
+              s=p.read_text()
+              if '5.9.0-rc.8' not in s: raise SystemExit(f'Missing RC8 version in {rel}')
+              p.write_text(s.replace('5.9.0-rc.8','5.9.0-rc.8.1'))
+          for p in (root/'tests').glob('*.test.mjs'):
+              s=p.read_text()
+              s=s.replace('5.9.0-rc.9','__GW2_NEXT__')
+              s=s.replace(r'5\.9\.0-rc\.9','__GW2_NEXT_ESC__')
+              s=s.replace('5.9.0-rc.8','5.9.0-rc.8.1')
+              s=s.replace(r'5\.9\.0-rc\.8',r'5\.9\.0-rc\.8\.1')
+              s=s.replace('__GW2_NEXT__','5.9.0-rc.8.2')
+              s=s.replace('__GW2_NEXT_ESC__',r'5\.9\.0-rc\.8\.2')
+              p.write_text(s)
+          PY
+          grep -F '5.9.0-rc.8.1' source/app/package.json
+          grep -F '5.9.0-rc.8.1' source/app-version.json
+          grep -F "VERSION='5.9.0-rc.8.1'" source/tools/build-release.py
+          node --input-type=module -e "import {compareVersions} from './source/app/updater.mjs';if(compareVersions('5.9.0-rc.8.1','5.9.0-rc.8')!==1)process.exit(1)"
+      - name: Full versioned regression before release
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd source && node --test tests/*.test.mjs)
+          find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+      - name: Build twice, verify archive and refuse overwrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view v5.9.0-rc.8.1 --repo Khileyan/gw2-companion-updates >/dev/null 2>&1; then
+             echo 'Already published; immutable release. Refusing overwrite.' >&2
+             exit 1
+          fi
+          mkdir -p dist
+          python3 source/tools/build-release.py dist/GW2-Account-Companion-v5.9.0-rc.8.1-All-in-One.zip
+          python3 source/tools/build-release.py dist/independent.zip
+          cmp dist/GW2-Account-Companion-v5.9.0-rc.8.1-All-in-One.zip dist/independent.zip
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './source/app/install-verified.mjs';
+          const z=fs.readFileSync('dist/GW2-Account-Companion-v5.9.0-rc.8.1-All-in-One.zip');
+          inspectReleaseZip(z,{version:'5.9.0-rc.8.1'});
+          console.log('Reviewed signed-update input bytes',z.length);
+          JS
+          sha256sum dist/GW2-Account-Companion-v5.9.0-rc.8.1-All-in-One.zip
+        env:
+          GH_TOKEN: ${{ github.token }}
+      - name: Sign with owner-approved key and publish through pinned feed
+        shell: bash
+        env:
+          PRIVATE_KEY_PEM: ${{ secrets.GW2_ED25519_SIGNING_KEY_PEM }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PRIVATE_KEY_PEM" ]; then echo 'Signing key not configured'; exit 1; fi
+          umask 077
+          trap 'rm -f "$RUNNER_TEMP/publisher-private.pem"' EXIT
+          printf '%s\n' "$PRIVATE_KEY_PEM" > "$RUNNER_TEMP/publisher-private.pem"
+          mkdir -p source/config
+          cp .github/rc8-overlay/publisher-public.pem source/config/publisher-public.pem
+          cat > source/config/update-source.json <<'JSON'
+          {"schema":1,"channel":"preview","manifest_url":"https://raw.githubusercontent.com/Khileyan/gw2-companion-updates/main/preview.json","publisher_fingerprint_sha256":"84797eaaf61d8f757ecfc6f65a5cbe6dc7952063fd970bcb2a745aca8cb6f045"}
+          JSON
+          node source/app/publish-release.mjs \
+            dist/GW2-Account-Companion-v5.9.0-rc.8.1-All-in-One.zip \
+            "$RUNNER_TEMP/publisher-private.pem"
