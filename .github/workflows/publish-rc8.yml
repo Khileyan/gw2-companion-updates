@@ -69,6 +69,7 @@ jobs:
               text=text.replace('__FUTURE_RC9__', '5.9.0-rc.9')
               text=text.replace(r'5\.9\.0-rc\.7', r'5\.9\.0-rc\.8')
               text=text.replace(r"version='5\.9\.0-rc\.8';state", r'version=\$script:CompanionVersion;state')
+              text=text.replace(r"pid=\$PID;version='5\.9\.0-rc\.8'", r'pid=\$PID;version=\$script:CompanionVersion')
               path.write_text(text)
           PYTHON
       - name: Run full RC7+RC8 regression suite
