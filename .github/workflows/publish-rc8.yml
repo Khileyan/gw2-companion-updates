@@ -38,10 +38,11 @@ jobs:
         run: |
           set -euo pipefail
           base64 --decode .github/rc8-overlay/patch.gz.b64 > work/rc8.patch.gz
-          echo '6ba7a438a51cfa1c0dbd9839821890cd6eb44e5114e5ef9e9a81383c5c6aa61f  work/rc8.patch.gz' | sha256sum -c -
+          echo '07e763cd642306ccb428d85180c2246059ec8ec64ff1b30bdd01c7fc663d2c82  work/rc8.patch.gz' | sha256sum -c -
           gzip -dc work/rc8.patch.gz > work/rc8.patch
-          echo '2c95528757b6640e0a170990c4bfe07fd3e37f234ee570c3ec41649f4d5f8a42  work/rc8.patch' | sha256sum -c -
+          echo '802d18416fb959b5630da743fa46b88af28faeb2fd4f5a410d938a55fec18eeb  work/rc8.patch' | sha256sum -c -
           (cd work/source && git init -q && git apply --check ../rc8.patch && git apply ../rc8.patch)
+          cp .github/rc8-overlay/app-version.json work/source/app-version.json
           grep -F '"version": "5.9.0-rc.8"' work/source/app/package.json
           grep -F '"version": "5.9.0-rc.8"' work/source/app-version.json
           grep -F "export const VERSION = '5.9.0-rc.8'" work/source/app/engine.mjs
