@@ -88,7 +88,7 @@ jobs:
               s=s.replace('5.9.0-rc.9','__GW2_NEXT__')
               s=s.replace(r'5\.9\.0-rc\.9','__GW2_NEXT_ESC__')
               s=s.replace('5.9.0-rc.8','5.9.0-rc.8.2')
-              s=s.replace(r'5\.9\.0-rc\.8',r'5\.9\.0-rc\.8\.1')
+              s=s.replace(r'5\.9\.0-rc\.8',r'5\.9\.0-rc\.8\.2')
               s=s.replace('__GW2_NEXT__','5.9.0-rc.8.3')
               s=s.replace('__GW2_NEXT_ESC__',r'5\.9\.0-rc\.8\.3')
               p.write_text(s)
