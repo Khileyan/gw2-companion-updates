@@ -1,0 +1,132 @@
+--- a/bootstrap/fixed-core.mjs
++++ b/bootstrap/fixed-core.mjs
+@@ -109,17 +109,50 @@
+  fs.rmSync(t.backup,{recursive:true,force:true});
+  return {restored:t.from,failed:t.to};
+ }
+-export function finishFixed(root){
++// A verified, connected candidate must not be converted into a failed update
++// merely because Windows is holding a handle inside the old backup tree.
++// Commit is written BEFORE nonessential cleanup.  Recovery remains explicit.
++export function finishFixed(root,{remove=fs.rmSync}={}){
+  const p=fixedPaths(root),t=safeTransaction(root);
+  if(currentApp(root).version!==t.to||t.phase!=='starting')throw Error('Unexpected fixed activation state');
+- atomicJSON(path.join(p.updater,'last-good.json'),{schema:1,version:t.from,updated_to:t.to});
+- fs.rmSync(p.journal,{force:true});
+- fs.rmSync(t.backup,{recursive:true,force:true});
+- return {active:t.to,previous:t.from};
++ const lastGood=path.join(p.updater,'last-good.json');
++ atomicJSON(lastGood,{schema:1,version:t.from,updated_to:t.to});
++ atomicJSON(p.journal,{...t,phase:'committed'});
++ let cleanupPending=false;
++ try{remove(p.journal,{force:true});}catch{cleanupPending=true;}
++ // Never roll back a connected candidate if removing the backup fails.
++ try{remove(t.backup,{recursive:true,force:true});}catch{cleanupPending=true;}
++ if(cleanupPending){
++   atomicJSON(path.join(p.updater,'cleanup-pending.json'),{
++     schema:1,version:t.to,backup:t.backup,at:Date.now()});
++ }
++ return {active:t.to,previous:t.from,cleanup_pending:cleanupPending};
+ }
++
++// May be called on a following normal startup; do not invent confirmation
++// merely from matching version strings.  Require the matching last-good commit.
++export function isCommittedFixed(root){
++ const p=fixedPaths(root);
++ if(!fs.existsSync(p.journal))return false;
++ try{
++  const t=safeTransaction(root);
++  if(t.phase!=='committed')return false;
++  const last=loadJSON(path.join(p.updater,'last-good.json'));
++  return last.schema===1&&last.version===t.from&&last.updated_to===t.to&&
++    currentApp(root).version===t.to;
++ }catch{return false;}
++}
++
+ export function recoverFixed(root,{now=Date.now(),minAgeMs=120000}={}){
+  const p=fixedPaths(root);if(!fs.existsSync(p.journal))return {recovered:false};
+  const t=safeTransaction(root);
+  if(now-t.at<minAgeMs)throw Error('Another update may be running');
++ if(isCommittedFixed(root)){
++   // The new version was already committed after a successful connection.
++   // Leave any blocked old backup in place for later cleanup.
++   try{fs.rmSync(p.journal,{force:true});}catch{}
++   return {recovered:true,committed:true,active:t.to};
++ }
++ if(t.phase==='committed')throw Error('Committed transaction has inconsistent metadata; manual review required');
+  return {recovered:true,...restoreFixed(root)};
+ }
+--- a/bootstrap/fixed-update.mjs
++++ b/bootstrap/fixed-update.mjs
+@@ -12,11 +12,23 @@
+ function event(root,state,details={}){atomicJSON(fixedPaths(root).status,{state,at:new Date().toISOString(),...details});}
+ function lock(root){const f=fixedPaths(root).lock;fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,JSON.stringify({pid:process.pid,created:Date.now()}),{flag:'wx'});return ()=>fs.rmSync(f,{force:true});}
+ 
++// Windows can briefly retain handles to a closing launcher. Retry only known
++// transient filesystem-lock errors; never retry arbitrary validation failures.
++export async function retryRestoreFixed(root,{attempts=8,delayMs=500,restore=restoreFixed,sleep=wait}={}){
++ if(!Number.isInteger(attempts)||attempts<1||attempts>20)throw Error('Invalid recovery attempts');
++ for(let i=0;i<attempts;i++){
++   try{return restore(root)}catch(e){
++     if(!['EPERM','EACCES','EBUSY'].includes(e?.code)||i===attempts-1)throw e;
++     await sleep(delayMs);
++   }
++ }
++}
++
+ export async function performFixedUpdate(root,{approved=false,launcherPid=null,fetchImpl=fetch,
+  waitForShutdown=null,launch=null,progressHost=false,progressHostLaunch=requestProgressHostLaunch,
+  stageOnly=false,manifestOverride=null,allowDowngrade=false}={}){
+  if(!approved)throw Error('Explicit LOCAL user approval required.');
+- const p=fixedPaths(root),unlock=lock(root);let stage=null,activated=false,from,to,downloaded=null,newProcess=null;
++ const p=fixedPaths(root),unlock=lock(root);let stage=null,activated=false,connected=false,from,to,downloaded=null,newProcess=null;
+  try{
+    if(fs.existsSync(p.journal))throw Error('Pending fixed update transaction: review before another update.');
+    from=currentApp(root).version;
+@@ -54,13 +66,18 @@
+    else throw Error('A verified Windows progress-host launcher is required');
+    if(!startup||!Number.isInteger(startup.pid)||startup.pid<1||startup.last_marker!=='connected')throw Error('Connection health check failed');
+    // The progress host confirms stable connection and the process remains alive.
++   connected=true;
+    const done=finishFixed(root);activated=false;
+    fs.rmSync(path.join(p.updater,'available.json'),{force:true});
+    event(root,'complete',{version:to,launcher_pid:startup.pid,connection_verified:true,old_version_removed:true});
+    return {updated:true,...done};
+  }catch(e){
+-   if(activated){
+-     try{const restored=restoreFixed(root);activated=false;
++   if(activated&&connected){
++     // The candidate passed its connection healthcheck.  Never attempt a
++     // destructive rollback merely because finalization/cleanup failed.
++     event(root,'recovery_required',{failure:'commit_or_cleanup_failed',version:to});
++   }else if(activated){
++     try{const restored=await retryRestoreFixed(root);activated=false;
+        if(progressHost){try{await progressHostLaunch(root,from,'rollback_starting');
+          event(root,'rolled_back',{previous:from,failure:'startup',restart_verified:true});}
+          catch {event(root,'rollback_restart_failed',{previous:from,failure:'startup',restart_verified:false});}}
+--- a/bootstrap/Start-Managed.ps1
++++ b/bootstrap/Start-Managed.ps1
+@@ -9,7 +9,22 @@
+ $transaction=Join-Path $Root 'updater\fixed-transaction.json'
+ if((Test-Path -LiteralPath $transaction) -and -not $ReadyFile){
+     $pending=Get-Content -LiteralPath $transaction -Raw -Encoding UTF8 | ConvertFrom-Json
+-    if($pending.manual_rollback_pending -ne $true){
++    # A previously committed update may retain its journal if Windows held
++    # a handle to the old backup. Match both the last-good receipt and active
++    # version before allowing a normal start; no automatic file deletion.
++    $committed=$false
++    if([string]$pending.phase -eq 'committed'){
++        $lastGoodPath=Join-Path $Root 'updater\last-good.json'
++        if(Test-Path -LiteralPath $lastGoodPath){
++            try{
++                $last=Get-Content -LiteralPath $lastGoodPath -Raw -Encoding UTF8 | ConvertFrom-Json
++                $committed=([int]$last.schema -eq 1 -and [string]$last.version -eq [string]$pending.from -and
++                    [string]$last.updated_to -eq [string]$pending.to -and
++                    [string]$version.version -eq [string]$pending.to)
++            }catch{$committed=$false}
++        }
++    }
++    if($pending.manual_rollback_pending -ne $true -and -not $committed){
+        throw 'Unterbrochene Update-Transaktion: bitte vor Start Wiederherstellung pruefen.'
+     }
+ }
