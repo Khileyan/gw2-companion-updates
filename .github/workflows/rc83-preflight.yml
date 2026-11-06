@@ -93,7 +93,7 @@ jobs:
           for(let n=0;n<100;n++){atomicJSON(file,{iteration:n});if(loadJSON(file).iteration!==n)throw Error('Status write incorrect');}
           console.log('Atomic status smoke: 100 writes passed');
           JS
-          grep -F '"version": "5.9.0-rc.8.2"' work/source/app-version.json
+          node -e "const p=require('./work/source/app/package.json'); if(p.version!=='5.9.0-rc.8.2')process.exit(1)"
       - name: Upload reviewed RC8.3 candidate source (non-publishing)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
