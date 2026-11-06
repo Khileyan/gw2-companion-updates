@@ -1,0 +1,138 @@
+name: RC8.3 preflight - update host lifecycle and Windows I/O
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/rc83-preflight.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Verify published RC8.2 base
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work
+          curl --fail --silent --show-error --location --retry 3 --proto '=https' --tlsv1.2 \
+            'https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.8.2/GW2-Account-Companion-v5.9.0-rc.8.2-All-in-One.zip' -o work/base.zip
+          echo '42c89c1f647bd81b646c989c4b9e47a4eb71ce63d222e08eae345b22a8e0ee9e  work/base.zip' | sha256sum -c -
+          (cd work && unzip -q base.zip && mv GW2-Account-Companion-v5.9.0-rc.8.2 source)
+      - name: Apply narrow RC8.3 lifecycle and status-retry changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('work/source')
+          host=root/'bootstrap/Update-Progress.ps1'
+          s=host.read_text(encoding='utf-8-sig')
+          def once(old,new):
+              global s
+              n=s.count(old)
+              if n!=1: raise SystemExit(f'Expected one occurrence ({n}): {old!r}')
+              s=s.replace(old,new)
+          # PowerShell automatic variable $PID is read-only, including parameter names.
+          once('function Write-Receipt([string]$nonce,[string]$version,[int]$pid,[string]$errorCode', 'function Write-Receipt([string]$nonce,[string]$version,[int]$launcherProcessId,[string]$errorCode')
+          once('$obj.pid=$pid', '$obj.pid=$launcherProcessId')
+          # Do not leave a success window (and powershell.exe) indefinitely alive.
+          once("    if($success){$progress.Value=100}else{$progress.Value=0}",
+               "    if($success){$progress.Value=100;$script:doneAt=Get-Date}else{$progress.Value=0}")
+          once("        if($script:terminal -and $script:confirmedPid -gt 0 -and -not (Get-Process -Id $script:confirmedPid -ErrorAction SilentlyContinue)){",
+               "        if($script:terminal -and $null -ne $script:doneAt -and ((Get-Date)-$script:doneAt).TotalSeconds -ge 3){$form.Close();return}\n        if($script:terminal -and $script:confirmedPid -gt 0 -and -not (Get-Process -Id $script:confirmedPid -ErrorAction SilentlyContinue)){")
+          once('try{[Windows.Forms.Application]::Run($form)}finally{$timer.Stop();$timer.Dispose();$form.Dispose()}',
+               'try{[Windows.Forms.Application]::Run($form)}finally{$timer.Stop();$timer.Dispose();if($null -ne $script:jobProcess){$script:jobProcess.Dispose()};$form.Dispose()}')
+          host.write_text(s,encoding='utf-8')
+          core=root/'bootstrap/fixed-core.mjs'
+          s=core.read_text(encoding='utf-8')
+          old="""export function atomicJSON(file,value){
+           fs.mkdirSync(path.dirname(file),{recursive:true});
+           const tmp=file+'.'+process.pid+'.'+crypto.randomBytes(8).toString('hex')+'.tmp';
+           try{fs.writeFileSync(tmp,JSON.stringify(value,null,2)+'\\n',{flag:'wx',mode:0o600});fs.renameSync(tmp,file);}
+           finally{fs.rmSync(tmp,{force:true});}
+          }"""
+          new="""export function atomicJSON(file,value){
+           fs.mkdirSync(path.dirname(file),{recursive:true});
+           const tmp=file+'.'+process.pid+'.'+crypto.randomBytes(8).toString('hex')+'.tmp';
+           const pause=new Int32Array(new SharedArrayBuffer(4));
+           try{
+            fs.writeFileSync(tmp,JSON.stringify(value,null,2)+'\\n',{flag:'wx',mode:0o600});
+            for(let attempt=0;attempt<10;attempt++){
+             try{fs.renameSync(tmp,file);return;}
+             catch(e){
+              if(!['EPERM','EACCES','EBUSY'].includes(e.code)||attempt===9)throw e;
+              Atomics.wait(pause,0,0,50*(attempt+1));
+             }
+            }
+           }finally{
+            try{fs.rmSync(tmp,{force:true})}
+            catch(e){if(!['EPERM','EACCES','EBUSY'].includes(e.code))throw e;}
+           }
+          }"""
+          if s.count(old)!=1: raise SystemExit('Unknown atomicJSON source layout; refusing patch')
+          core.write_text(s.replace(old,new),encoding='utf-8')
+          print('Patched source for isolated verification only; no release published.')
+          PY
+      - name: Check JavaScript syntax, original version, status I/O smoke
+        shell: bash
+        run: |
+          set -euo pipefail
+          find work/source/app work/source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+          LOCALAPPDATA="$(mktemp -d)" node --input-type=module <<'JS'
+          import {atomicJSON,loadJSON} from './work/source/bootstrap/fixed-core.mjs';
+          import path from 'node:path';
+          const file=path.join(process.env.LOCALAPPDATA,'updater','status.json');
+          for(let n=0;n<100;n++){atomicJSON(file,{iteration:n});if(loadJSON(file).iteration!==n)throw Error('Status write incorrect');}
+          console.log('Atomic status smoke: 100 writes passed');
+          JS
+          grep -F '"version": "5.9.0-rc.8.2"' work/source/app-version.json
+      - name: Upload reviewed RC8.3 candidate source (non-publishing)
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rc83-lifecycle-candidate-source
+          path: work/source/
+          if-no-files-found: error
+
+  windows:
+    needs: prepare
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: rc83-lifecycle-candidate-source
+          path: source
+      - name: PowerShell 5.1 parser and lifecycle code checks
+        shell: powershell
+        run: |
+          foreach($relative in @('bootstrap/Update-Progress.ps1','bootstrap/Start-Managed.ps1','launcher/GW2-Companion.ps1')){
+              $file=(Resolve-Path (Join-Path 'source' $relative)).Path
+              $tokens=$null;$errors=$null
+              [System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors)|Out-Null
+              if($errors.Count -gt 0){throw "PowerShell syntax errors: $relative"}
+          }
+          $hostCode=[IO.File]::ReadAllText((Resolve-Path source/bootstrap/Update-Progress.ps1).Path)
+          if($hostCode -notmatch 'function Write-Receipt\([^\r\n]*\$launcherProcessId'){throw 'Reserved PID parameter not fixed'}
+          if($hostCode -notmatch 'doneAt=Get-Date'){throw 'Auto-close not scheduled'}
+          if($hostCode -notmatch 'TotalSeconds -ge 3'){throw 'Auto-close timer missing'}
+          Write-Host 'PowerShell 5.1 syntax and lifecycle checks passed'
+      - name: Windows atomic status writes
+        shell: powershell
+        run: |
+          $env:LOCALAPPDATA=Join-Path $env:RUNNER_TEMP 'gw2-rc83-test'
+          node --input-type=module -e "import {atomicJSON,loadJSON} from './source/bootstrap/fixed-core.mjs';import path from 'node:path';const f=path.join(process.env.LOCALAPPDATA,'updater','status.json');for(let i=0;i<100;i++){atomicJSON(f,{i});if(loadJSON(f).i!==i)throw Error('Readback mismatch')}console.log('Windows status write smoke passed')"
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+# No signing and no release: first verify the patch on both platforms.
