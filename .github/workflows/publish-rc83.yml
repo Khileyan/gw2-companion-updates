@@ -1,0 +1,160 @@
+name: Build validate and publish signed RC8.3
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/publish-rc83.yml']
+
+permissions:
+  contents: write
+concurrency:
+  group: gw2-rc83-release
+  cancel-in-progress: false
+
+jobs:
+  verify-base:
+    uses: ./.github/workflows/test-rollback-safety.yml
+    permissions:
+      contents: read
+
+  candidate:
+    needs: verify-base
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: reviewed-rollback-source
+          path: source
+      - name: Apply RC8.3 patch and test exact candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/rc83-patch.py source
+          cp .github/rc83-handoff.test.mjs source/tests/rc83-handoff.test.mjs
+          (cd source && node --test tests/*.test.mjs)
+          find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+          node --input-type=module <<'JS'
+          import {compareVersions} from './source/app/updater.mjs';
+          if(compareVersions('5.9.0-rc.8.3','5.9.0-rc.8.2')!==1)throw Error('Incorrect upgrade ordering');
+          JS
+      - name: Build reproducible verified release
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python3 source/tools/build-release.py dist/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip
+          python3 source/tools/build-release.py dist/independent.zip
+          cmp dist/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip dist/independent.zip
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './source/app/install-verified.mjs';
+          inspectReleaseZip(fs.readFileSync('dist/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip'),{version:'5.9.0-rc.8.3'});
+          JS
+          sha256sum dist/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc83-reviewed-source
+          path: source/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc83-reviewed-release
+          path: dist/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip
+          if-no-files-found: error
+
+  windows:
+    needs: candidate
+    runs-on: windows-2022
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc83-reviewed-source
+          path: source
+      - name: Verify RC8.3 launcher and progress host with Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          foreach($rel in @('bootstrap/Update-Progress.ps1','bootstrap/Start-Managed.ps1','launcher/GW2-Companion.ps1')) {
+            $errors=$null;$tokens=$null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path (Join-Path 'source' $rel)).Path,[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count -ne 0){throw "Invalid PS5.1 syntax in $rel"}
+          }
+          $hostCode=[IO.File]::ReadAllText((Resolve-Path source/bootstrap/Update-Progress.ps1).Path)
+          if($hostCode -notmatch 'doneAt=Get-Date' -or $hostCode -notmatch 'doneAt=\$null'){throw 'Progress lifecycle guard missing'}
+      - name: Test exact candidate on Windows
+        shell: powershell
+        run: |
+          Push-Location source
+          try {
+            node --test tests/rc83-handoff.test.mjs tests/rollback-safety.test.mjs tests/v590-fixed-layout.test.mjs
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          } finally {Pop-Location}
+          $env:LOCALAPPDATA=Join-Path $env:RUNNER_TEMP 'gw2-rc83-release-test'
+          node --input-type=module -e "import {atomicJSON,loadJSON} from './source/bootstrap/fixed-core.mjs';import path from 'node:path';const f=path.join(process.env.LOCALAPPDATA,'updater','status.json');for(let i=0;i<100;i++){atomicJSON(f,{i});if(loadJSON(f).i!==i)throw Error('Readback mismatch')}"
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+
+  release:
+    needs: [candidate, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc83-reviewed-source
+          path: source
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc83-reviewed-release
+          path: dist
+      - name: Verify immutable signed release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v5.9.0-rc.8.3 --repo Khileyan/gw2-companion-updates >/dev/null 2>&1; then
+            echo 'Immutable RC8.3 release already exists. Refusing overwrite.' >&2; exit 1
+          fi
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './source/app/install-verified.mjs';
+          inspectReleaseZip(fs.readFileSync('dist/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip'),{version:'5.9.0-rc.8.3'});
+          JS
+      - name: Sign and publish using existing owner-approved signing key
+        shell: bash
+        env:
+          PRIVATE_KEY_PEM: ${{ secrets.GW2_ED25519_SIGNING_KEY_PEM }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PRIVATE_KEY_PEM" ]; then echo 'Missing publisher signing key'; exit 1; fi
+          umask 077
+          trap 'rm -f "$RUNNER_TEMP/publisher-private.pem"' EXIT
+          printf '%s\n' "$PRIVATE_KEY_PEM" > "$RUNNER_TEMP/publisher-private.pem"
+          mkdir -p source/config
+          cp .github/rc8-overlay/publisher-public.pem source/config/publisher-public.pem
+          cat > source/config/update-source.json <<'JSON'
+          {"schema":1,"channel":"preview","manifest_url":"https://raw.githubusercontent.com/Khileyan/gw2-companion-updates/main/preview.json","publisher_fingerprint_sha256":"84797eaaf61d8f757ecfc6f65a5cbe6dc7952063fd970bcb2a745aca8cb6f045"}
+          JSON
+          node source/app/publish-release.mjs \
+            dist/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip \
+            "$RUNNER_TEMP/publisher-private.pem"
