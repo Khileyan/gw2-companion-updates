@@ -1,6 +1,36 @@
+diff --git a/bootstrap/Start-Managed.ps1 b/bootstrap/Start-Managed.ps1
+index 0b44855..3094c54 100644
+--- a/bootstrap/Start-Managed.ps1
++++ b/bootstrap/Start-Managed.ps1
+@@ -9,7 +9,22 @@ if($version.version -ne $pkg.version){throw 'Versionsmetadaten stimmen nicht mit
+ $transaction=Join-Path $Root 'updater\fixed-transaction.json'
+ if((Test-Path -LiteralPath $transaction) -and -not $ReadyFile){
+     $pending=Get-Content -LiteralPath $transaction -Raw -Encoding UTF8 | ConvertFrom-Json
+-    if($pending.manual_rollback_pending -ne $true){
++    # A previously committed update may retain its journal if Windows held
++    # a handle to the old backup. Match both the last-good receipt and active
++    # version before allowing a normal start; no automatic file deletion.
++    $committed=$false
++    if([string]$pending.phase -eq 'committed'){
++        $lastGoodPath=Join-Path $Root 'updater\last-good.json'
++        if(Test-Path -LiteralPath $lastGoodPath){
++            try{
++                $last=Get-Content -LiteralPath $lastGoodPath -Raw -Encoding UTF8 | ConvertFrom-Json
++                $committed=([int]$last.schema -eq 1 -and [string]$last.version -eq [string]$pending.from -and
++                    [string]$last.updated_to -eq [string]$pending.to -and
++                    [string]$version.version -eq [string]$pending.to)
++            }catch{$committed=$false}
++        }
++    }
++    if($pending.manual_rollback_pending -ne $true -and -not $committed){
+        throw 'Unterbrochene Update-Transaktion: bitte vor Start Wiederherstellung pruefen.'
+     }
+ }
+diff --git a/bootstrap/fixed-core.mjs b/bootstrap/fixed-core.mjs
+index 33f6bbe..56a6eab 100644
 --- a/bootstrap/fixed-core.mjs
 +++ b/bootstrap/fixed-core.mjs
-@@ -109,17 +109,50 @@
+@@ -109,17 +109,50 @@ export function restoreFixed(root){
   fs.rmSync(t.backup,{recursive:true,force:true});
   return {restored:t.from,failed:t.to};
  }
@@ -27,7 +57,7 @@
 +     schema:1,version:t.to,backup:t.backup,at:Date.now()});
 + }
 + return {active:t.to,previous:t.from,cleanup_pending:cleanupPending};
- }
++}
 +
 +// May be called on a following normal startup; do not invent confirmation
 +// merely from matching version strings.  Require the matching last-good commit.
@@ -41,7 +71,7 @@
 +  return last.schema===1&&last.version===t.from&&last.updated_to===t.to&&
 +    currentApp(root).version===t.to;
 + }catch{return false;}
-+}
+ }
 +
  export function recoverFixed(root,{now=Date.now(),minAgeMs=120000}={}){
   const p=fixedPaths(root);if(!fs.existsSync(p.journal))return {recovered:false};
@@ -56,9 +86,11 @@
 + if(t.phase==='committed')throw Error('Committed transaction has inconsistent metadata; manual review required');
   return {recovered:true,...restoreFixed(root)};
  }
+diff --git a/bootstrap/fixed-update.mjs b/bootstrap/fixed-update.mjs
+index 55d5285..388cae9 100644
 --- a/bootstrap/fixed-update.mjs
 +++ b/bootstrap/fixed-update.mjs
-@@ -12,11 +12,23 @@
+@@ -12,11 +12,23 @@ function alive(pid){if(!Number.isInteger(pid)||pid<1)return false;try{process.ki
  function event(root,state,details={}){atomicJSON(fixedPaths(root).status,{state,at:new Date().toISOString(),...details});}
  function lock(root){const f=fixedPaths(root).lock;fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,JSON.stringify({pid:process.pid,created:Date.now()}),{flag:'wx'});return ()=>fs.rmSync(f,{force:true});}
  
@@ -83,7 +115,7 @@
   try{
     if(fs.existsSync(p.journal))throw Error('Pending fixed update transaction: review before another update.');
     from=currentApp(root).version;
-@@ -54,13 +66,18 @@
+@@ -54,13 +66,18 @@ export async function performFixedUpdate(root,{approved=false,launcherPid=null,f
     else throw Error('A verified Windows progress-host launcher is required');
     if(!startup||!Number.isInteger(startup.pid)||startup.pid<1||startup.last_marker!=='connected')throw Error('Connection health check failed');
     // The progress host confirms stable connection and the process remains alive.
@@ -104,29 +136,3 @@
         if(progressHost){try{await progressHostLaunch(root,from,'rollback_starting');
           event(root,'rolled_back',{previous:from,failure:'startup',restart_verified:true});}
           catch {event(root,'rollback_restart_failed',{previous:from,failure:'startup',restart_verified:false});}}
---- a/bootstrap/Start-Managed.ps1
-+++ b/bootstrap/Start-Managed.ps1
-@@ -9,7 +9,22 @@
- $transaction=Join-Path $Root 'updater\fixed-transaction.json'
- if((Test-Path -LiteralPath $transaction) -and -not $ReadyFile){
-     $pending=Get-Content -LiteralPath $transaction -Raw -Encoding UTF8 | ConvertFrom-Json
--    if($pending.manual_rollback_pending -ne $true){
-+    # A previously committed update may retain its journal if Windows held
-+    # a handle to the old backup. Match both the last-good receipt and active
-+    # version before allowing a normal start; no automatic file deletion.
-+    $committed=$false
-+    if([string]$pending.phase -eq 'committed'){
-+        $lastGoodPath=Join-Path $Root 'updater\last-good.json'
-+        if(Test-Path -LiteralPath $lastGoodPath){
-+            try{
-+                $last=Get-Content -LiteralPath $lastGoodPath -Raw -Encoding UTF8 | ConvertFrom-Json
-+                $committed=([int]$last.schema -eq 1 -and [string]$last.version -eq [string]$pending.from -and
-+                    [string]$last.updated_to -eq [string]$pending.to -and
-+                    [string]$version.version -eq [string]$pending.to)
-+            }catch{$committed=$false}
-+        }
-+    }
-+    if($pending.manual_rollback_pending -ne $true -and -not $committed){
-        throw 'Unterbrochene Update-Transaktion: bitte vor Start Wiederherstellung pruefen.'
-     }
- }
