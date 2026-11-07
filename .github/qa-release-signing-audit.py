@@ -15,3 +15,10 @@ for rel in files:
  for i,line in enumerate(lines,1):
   if key.search(line) and not re.search(r'[A-Za-z0-9+/]{60,}|secret.*=|token.*=',line,re.I):
    print('PUBLISH-CONTRACT',rel,i,line[:210])
+
+print('PUBLISH-CONTRACT safe owner-path context')
+p=root/'app/publish-release.mjs'
+for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
+ if 24<=i<=38 or 47<=i<=54:
+  if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
+  print('PUBLISH-PATH',i,line[:240])
