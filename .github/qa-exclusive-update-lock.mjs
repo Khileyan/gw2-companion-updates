@@ -7,16 +7,16 @@ import crypto from 'node:crypto';
 export class UpdateLockBusyError extends Error {
  constructor(){super('Update operation active or lock state unknown');this.code='UPDATE_LOCK_BUSY';}
 }
-export function withExclusiveUpdateLock(root,operation,{now=Date.now}={}){
- if(typeof operation!=='function')throw TypeError('Callback required');
- const updater=path.join(path.resolve(root),'updater');
- if(!fs.lstatSync(updater).isDirectory())throw Error('Unsafe updater directory');
- const lockFile=path.join(updater,'update.lock'), token=crypto.randomBytes(32).toString('hex');
+export function acquireExclusiveUpdateLock(root,{now=Date.now,kind='fixed-update'}={}){
+ if(!['fixed-update','stale-journal-review'].includes(kind))throw Error('Invalid lock operation');
+ const base=path.resolve(root), updater=path.join(base,'updater');
+ if(!fs.lstatSync(base).isDirectory()||!fs.lstatSync(updater).isDirectory())throw Error('Unsafe update root');
+ const lockFile=path.join(updater,'update.lock'),token=crypto.randomBytes(32).toString('hex');
  let fd;
  try{fd=fs.openSync(lockFile,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);}
  catch(e){if(e.code==='EEXIST')throw new UpdateLockBusyError();throw e;}
  try{
-  fs.writeFileSync(fd,JSON.stringify({schema:1,pid:process.pid,token,created_at:now(),kind:'stale-journal-review'})+'\n');
+  fs.writeFileSync(fd,JSON.stringify({schema:1,pid:process.pid,token,created_at:now(),kind})+'\\n');
   fs.fsyncSync(fd);
  }catch(e){try{fs.closeSync(fd)}catch{}throw e;}
  fs.closeSync(fd);
@@ -24,17 +24,22 @@ export function withExclusiveUpdateLock(root,operation,{now=Date.now}={}){
   const st=fs.lstatSync(lockFile);
   if(!st.isFile()||st.isSymbolicLink())throw Error('Exclusive lock changed');
   const current=JSON.parse(fs.readFileSync(lockFile,'utf8'));
-  if(current.token!==token||current.pid!==process.pid||current.kind!=='stale-journal-review')
+  if(current.token!==token||current.pid!==process.pid||current.kind!==kind)
    throw Error('Exclusive lock ownership lost');
  };
+ const release=()=>{assertOwned();fs.unlinkSync(lockFile);};
+ return {assertOwned,release};
+}
+export function withExclusiveUpdateLock(root,operation,{now=Date.now}={}){
+ if(typeof operation!=='function')throw TypeError('Callback required');
+ const {assertOwned,release}=acquireExclusiveUpdateLock(root,{now,kind:'stale-journal-review'});
  let result,operationError;
  try{
   assertOwned();result=operation({assertOwned});
   if(result&&typeof result.then==='function')throw Error('Async callback is not supported');
   assertOwned();
  }catch(e){operationError=e;}
- // Refuse to remove any lock whose identity changed; never reclaim crashed locks.
- try{assertOwned();fs.unlinkSync(lockFile);}catch(e){if(!operationError)operationError=e;}
+ try{release()}catch(e){if(!operationError)operationError=e;}
  if(operationError)throw operationError;
  return result;
 }
