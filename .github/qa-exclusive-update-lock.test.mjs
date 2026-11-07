@@ -39,3 +39,17 @@ test('second Node process observes held exclusive lock',t=>{
   assert.equal(p.status,0,p.stderr);
  });
 });
+
+test('abrupt updater termination leaves a lock and blocks any subsequent repair',t=>{
+ const r=create(t),url=new URL('../bootstrap/exclusive-update-lock.mjs',import.meta.url).href;
+ const js=`import {withExclusiveUpdateLock} from ${JSON.stringify(url)};withExclusiveUpdateLock(process.argv[1],()=>{process.exit(67);});`;
+ const p=spawnSync(process.execPath,['--input-type=module','-e',js,r],{encoding:'utf8'});
+ assert.equal(p.status,67,p.stderr);
+ assert.ok(fs.existsSync(lock(r)));
+ assert.throws(()=>withExclusiveUpdateLock(r,()=>{}),UpdateLockBusyError);
+});
+test('asynchronous callback is rejected instead of silently dropping exclusive ownership',t=>{
+ const r=create(t);
+ assert.throws(()=>withExclusiveUpdateLock(r,()=>Promise.resolve()),/Async callback is not supported/);
+ assert.equal(fs.existsSync(lock(r)),false);
+});
