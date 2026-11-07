@@ -52,9 +52,12 @@ export function inspectStaleJournal(root,{now=Date.now(),minAgeMs=120000,isAlive
   let installed,marker,prior;
   try{
     if(!safeRegular(path.join(base,'app','package.json'))||
+       !noSymlinkAncestors(path.join(base,'app','package.json'),base)||
        !safeRegular(path.join(base,'app-version.json'))||
+       !noSymlinkAncestors(path.join(base,'app-version.json'),base)||
        !safeDirectory(t.backup)||!noSymlinkAncestors(t.backup,base)||
-       !safeRegular(path.join(t.backup,'app','package.json')))
+       !safeRegular(path.join(t.backup,'app','package.json'))||
+       !noSymlinkAncestors(path.join(t.backup,'app','package.json'),base))
        return reason('unsafe_version_or_backup_path');
     installed=read(path.join(base,'app','package.json')).version;
     marker=read(path.join(base,'app-version.json')).version;
