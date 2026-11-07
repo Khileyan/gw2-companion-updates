@@ -93,3 +93,11 @@ test('verified exited process authorizes recovery only under exclusive lock',t=>
  assert.deepEqual(out,{safe:true});
  assert.equal(fs.readFileSync(journal(r),'utf8'),'keep');
 });
+
+test('manual rollback confirmation obtains lock and rechecks journal before finishFixed',()=>{
+ const text=fs.readFileSync(new URL('../bootstrap/fixed-confirm.mjs',import.meta.url),'utf8');
+ assert.match(text,/acquireExclusiveUpdateLock\(root,\{kind:'fixed-update'\}\)/);
+ assert.match(text,/const current=loadJSON\(fixedPaths\(root\)\.journal\)/);
+ assert.match(text,/owner\.assertOwned\(\);[\s\S]*finishFixed\(root\)/);
+ assert.doesNotMatch(text,/if\(j\.manual_rollback_pending&&j\.to===version\)finishFixed\(root\)/);
+});
