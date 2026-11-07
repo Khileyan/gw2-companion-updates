@@ -18,6 +18,9 @@ on:
       - '.github/qa-exclusive-update-lock.test.mjs'
       - '.github/qa-fixed-lock-integration.py'
       - '.github/qa-process-identity-audit.py'
+      - '.github/qa-launcher-session-identity.py'
+      - '.github/qa-launcher-process-identity.mjs'
+      - '.github/qa-launcher-process-identity.test.mjs'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -75,9 +78,12 @@ jobs:
           python3 .github/qa-stale-journal-integration.py source
           python3 .github/qa-fixed-lock-integration.py source
           python3 .github/qa-stale-journal-diagnostics.py source
+          python3 .github/qa-launcher-session-identity.py source
+          cp .github/qa-launcher-process-identity.mjs source/bootstrap/launcher-process-identity.mjs
           python3 .github/qa-process-identity-audit.py source
           cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
           cp .github/qa-exclusive-update-lock.test.mjs source/tests/qa-exclusive-update-lock.test.mjs
+          cp .github/qa-launcher-process-identity.test.mjs source/tests/qa-launcher-process-identity.test.mjs
           find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
           (cd source && node --test tests/*.test.mjs)
           python3 source/tools/build-release.py dist/rc10-candidate.zip
@@ -85,6 +91,7 @@ jobs:
           cmp dist/rc10-candidate.zip dist/independent.zip
           unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/stale-journal.mjs'
           unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/exclusive-update-lock.mjs'
+          unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/launcher-process-identity.mjs'
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import {inspectReleaseZip} from './source/app/install-verified.mjs';
@@ -129,7 +136,7 @@ jobs:
           if(-not $?){exit 1}
           node --test source/tests/rc10-stability.test.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
-          node --test source/tests/qa-stale-journal.test.mjs source/tests/qa-exclusive-update-lock.test.mjs
+          node --test source/tests/qa-stale-journal.test.mjs source/tests/qa-exclusive-update-lock.test.mjs source/tests/qa-launcher-process-identity.test.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Windows update/rollback safety regressions
         shell: powershell
