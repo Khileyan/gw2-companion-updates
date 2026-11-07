@@ -16,7 +16,7 @@ export function acquireExclusiveUpdateLock(root,{now=Date.now,kind='fixed-update
  try{fd=fs.openSync(lockFile,fs.constants.O_WRONLY|fs.constants.O_CREAT|fs.constants.O_EXCL,0o600);}
  catch(e){if(e.code==='EEXIST')throw new UpdateLockBusyError();throw e;}
  try{
-  fs.writeFileSync(fd,JSON.stringify({schema:1,pid:process.pid,token,created_at:now(),kind})+'\\n');
+  fs.writeFileSync(fd,JSON.stringify({schema:1,pid:process.pid,token,created_at:now(),kind})+'\n');
   fs.fsyncSync(fd);
  }catch(e){try{fs.closeSync(fd)}catch{}throw e;}
  fs.closeSync(fd);
