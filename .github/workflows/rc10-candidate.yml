@@ -22,6 +22,7 @@ on:
       - '.github/qa-recovery-callers-audit.py'
       - '.github/qa-recovery-lock-integration.py'
       - '.github/qa-confirm-lock-integration.py'
+      - '.github/qa-rc11-version.py'
       - '.github/qa-recovery-lock.test.mjs'
       - '.github/qa-launcher-session-identity.py'
       - '.github/qa-launcher-process-identity.mjs'
@@ -110,6 +111,27 @@ jobs:
           if(compareVersions('5.9.0-rc.10','5.9.0-rc.9')!==1)throw Error('RC10 version ordering failed');
           inspectReleaseZip(fs.readFileSync('dist/rc10-candidate.zip'),{version:'5.9.0-rc.10'});
           JS
+      - name: Build unsigned, non-publishing RC11 versioned preview for release-readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a source rc11-source
+          python3 .github/qa-rc11-version.py rc11-source
+          python3 rc11-source/tools/build-release.py dist/rc11-qa-unsigned.zip
+          python3 rc11-source/tools/build-release.py dist/rc11-independent-unsigned.zip
+          cmp dist/rc11-qa-unsigned.zip dist/rc11-independent-unsigned.zip
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './source/app/install-verified.mjs';
+          import {compareVersions} from './source/app/updater.mjs';
+          if(compareVersions('5.9.0-rc.11','5.9.0-rc.10')!==1)throw Error('RC11 must exceed signed RC10');
+          const target='rc11-source';
+          for(const p of ['app/package.json','app-version.json']){
+            if(JSON.parse(fs.readFileSync(target+'/'+p,'utf8')).version!=='5.9.0-rc.11')throw Error('RC11 version marker mismatch '+p);
+          }
+          const entries=inspectReleaseZip(fs.readFileSync('dist/rc11-qa-unsigned.zip'),{version:'5.9.0-rc.11'}).records;
+          if(!entries.length)throw Error('Empty RC11 candidate archive');
+          JS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: rc10-candidate-source
@@ -119,6 +141,11 @@ jobs:
         with:
           name: rc10-candidate-unpublished
           path: dist/rc10-candidate.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc11-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist/rc11-qa-unsigned.zip
           if-no-files-found: error
 
   windows:
