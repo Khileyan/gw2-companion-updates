@@ -52,8 +52,16 @@ try {
  if((Split-Path -Leaf (Split-Path $found[0].FullName -Parent)) -cne 'app'){
    throw 'Publisher liegt ausserhalb des erwarteten app-Verzeichnisses.'
  }
+ # The canonical signed-release publisher intentionally requires the concise ZIP
+ # basename GW2-Account-Companion-v<VERSION>.zip. Preserve the downloaded artifact
+ # and its verified SHA-256; pass a byte-identical temporary copy to the publisher.
+ $publisherZip=Join-Path $temp ("GW2-Account-Companion-v$version.zip")
+ if(Test-Path -LiteralPath $publisherZip){throw 'Ziel fuer die Publisher-Kopie existiert bereits.'}
+ Copy-Item -LiteralPath $zip -Destination $publisherZip -ErrorAction Stop
+ $copyHash=(Get-FileHash -LiteralPath $publisherZip -Algorithm SHA256).Hash.ToLowerInvariant()
+ if($copyHash -cne $got){throw 'Temporäre ZIP-Kopie weicht vom verifizierten Paket ab.'}
  Push-Location $temp
- try { & node.exe $found[0].FullName $zip $key
+ try { & node.exe $found[0].FullName $publisherZip $key
    if($LASTEXITCODE -ne 0){throw 'Publisher fehlgeschlagen. GitHub Release und Preview-Manifest vor erneutem Versuch manuell pruefen!'}
  }finally{Pop-Location}
  Write-Host 'Publisher meldet Erfolg. RC11 signiert und veroeffentlicht.' -ForegroundColor Green
