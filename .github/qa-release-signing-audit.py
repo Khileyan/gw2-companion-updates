@@ -46,3 +46,19 @@ for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
  if i>150:break
  if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
  print('SLOT-CODE',i,line[:240])
+
+for rel in ['bootstrap/Update-Progress.ps1','bootstrap/Start-Managed.ps1','launcher/GW2-Companion.ps1','bootstrap/fixed-core.mjs']:
+ p=root/rel
+ if not p.exists():continue
+ print('FAILURE-DIAG',rel)
+ lines=p.read_text(encoding='utf-8-sig').splitlines()
+ ranges=[]
+ if rel.endswith('GW2-Companion.ps1'):
+  ranges=[(i-6,i+18) for i,line in enumerate(lines,1) if '$btnUpdate.add_Click' in line or 'Update-Progress.ps1' in line or 'LastUpdate' in line]
+ elif rel.endswith('fixed-core.mjs'):ranges=[(1,min(160,len(lines)))]
+ else:ranges=[(1,min(150,len(lines)))]
+ indices=set(i for a,b in ranges for i in range(max(1,a),min(len(lines),b)+1))
+ for i in sorted(indices):
+  line=lines[i-1]
+  if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
+  print('FAILURE-CODE',rel,i,line[:260])
