@@ -14,6 +14,17 @@ on:
       - '.github/qa-stale-journal-integration.py'
       - '.github/qa-stale-journal-diagnostics.py'
       - '.github/workflows/rc10-candidate.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/rc10-patch.py'
+      - '.github/rc10-hardening-patch.py'
+      - '.github/rc10-recovery-patch.py'
+      - '.github/qa-stale-journal.mjs'
+      - '.github/qa-stale-journal.test.mjs'
+      - '.github/qa-stale-journal-integration.py'
+      - '.github/qa-stale-journal-diagnostics.py'
+      - '.github/workflows/rc10-candidate.yml'
   workflow_dispatch:
   workflow_call:
 
