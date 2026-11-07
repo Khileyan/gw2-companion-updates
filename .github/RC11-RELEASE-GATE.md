@@ -10,10 +10,10 @@ This is a release checklist for the **draft** QA branch. It is not authorization
 - [x] No silent stale-lock deletion; unverified journal archival remains disabled.
 - [x] Process contention, abrupt process exit, stale-lock, tamper and rollback negative regression tests.
 - [x] Linux/Windows no-publish QA checks verified at run #115: [GitHub Actions](https://github.com/Khileyan/gw2-companion-updates/actions/runs/42398831071).
-- [ ] Non-publishing RC11 versioned candidate ZIP reproducible, format-checked, inspected for packaging and version markers.
-- [ ] All Linux and Windows regression tests green on final SHA.
-- [ ] Confirm `fixed-confirm.mjs` and any future `fixed-core.mjs` caller cannot alter a live installation without lock ownership; audit all entrances at final SHA.
-- [ ] Independent security review of Windows reparse points, file identity / check–use races, retained journal backups, and crash-after-commit behavior.
+- [x] Non-publishing **unsigned** RC11 versioned candidate ZIP reproducible, checked against 181 archive entries, version ordering and critical package components on both Linux and Windows (CI #126).
+- [x] Linux/Windows QA gate green on final code SHA ddbb98d2d281ea35d1bea5d72d8f2da89ae4e330 (CI #126: Linux 336 passed, one Windows-only skipped; Windows QA 53/53, rollback 22/22, UI 3/3).
+- [x] Current production recovery/activation call sites audited and restricted to reviewed modules in CI; `fixed-confirm.mjs` verifies exclusive ownership. Future new call sites fail source audit.
+- [ ] Final release-security review, including Windows reparse points, non-cooperating filesystem writers, file identity/check–use races, retained journal backups, and crash-after-commit behavior; no claim of mathematical/absolute safety.
 - [ ] Final signed RC11 release signed by authorized publisher, verified manifest and immutable GitHub asset digests.
 - [ ] `preview.json` switch **only after** authorized signed release, separate explicit user approval and a staged rollback plan.
 - [ ] Windows live smoke testing on user machine after approval (GUI launch, connected plugin diagnostics, manual update check, clean restart, journal and lock cleanup, backup policy).
