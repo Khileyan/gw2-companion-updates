@@ -24,7 +24,7 @@ if(-not $line -or $line -notmatch '^([0-9a-fA-F]{64})\s+'){throw 'Fehlende SHA25
 $expected=$Matches[1].ToLowerInvariant()
 $got=(Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
 if($got -cne $expected){throw 'SHA256-Pruefsumme stimmt nicht. Abbruch.'}
-$authenticated=& gh auth status 2>&1
+& gh auth status >$null 2>&1
 if($LASTEXITCODE -ne 0){throw 'GitHub CLI nicht angemeldet. Zuerst gh auth login.'}
 $repoName=& gh repo view $repo --json nameWithOwner --jq '.nameWithOwner'
 if($LASTEXITCODE -ne 0 -or $repoName.Trim() -cne $repo){throw 'Zugriff auf das richtige GitHub-Repository fehlt.'}
@@ -48,8 +48,10 @@ try {
  if((Split-Path -Leaf (Split-Path $found[0].FullName -Parent)) -cne 'app'){
    throw 'Publisher liegt ausserhalb des erwarteten app-Verzeichnisses.'
  }
- & node.exe $found[0].FullName $zip $key
- if($LASTEXITCODE -ne 0){throw 'Publisher fehlgeschlagen. GitHub Release und Preview-Manifest vor erneutem Versuch manuell pruefen!'}
+ Push-Location $temp
+ try { & node.exe $found[0].FullName $zip $key
+   if($LASTEXITCODE -ne 0){throw 'Publisher fehlgeschlagen. GitHub Release und Preview-Manifest vor erneutem Versuch manuell pruefen!'}
+ }finally{Pop-Location}
  Write-Host 'Publisher meldet Erfolg. RC11 signiert und veroeffentlicht.' -ForegroundColor Green
 }finally{
  Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
