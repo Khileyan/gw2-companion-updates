@@ -23,6 +23,7 @@ on:
       - '.github/qa-recovery-lock-integration.py'
       - '.github/qa-confirm-lock-integration.py'
       - '.github/qa-rc11-version.py'
+      - '.github/qa-rc11-package-smoke.mjs'
       - '.github/qa-recovery-lock.test.mjs'
       - '.github/qa-launcher-session-identity.py'
       - '.github/qa-launcher-process-identity.mjs'
@@ -120,6 +121,7 @@ jobs:
           python3 rc11-source/tools/build-release.py dist/rc11-qa-unsigned.zip
           python3 rc11-source/tools/build-release.py dist/rc11-independent-unsigned.zip
           cmp dist/rc11-qa-unsigned.zip dist/rc11-independent-unsigned.zip
+          node .github/qa-rc11-package-smoke.mjs dist/rc11-qa-unsigned.zip
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import {inspectReleaseZip} from './source/app/install-verified.mjs';
@@ -161,6 +163,15 @@ jobs:
         with:
           name: rc10-candidate-source
           path: source
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc11-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist
+      - name: Verify unsigned RC11 package integrity on Windows without installation
+        shell: powershell
+        run: |
+          node .github/qa-rc11-package-smoke.mjs dist/rc11-qa-unsigned.zip
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: PowerShell 5.1 syntax and manual update UI regression
         shell: powershell
         run: |
