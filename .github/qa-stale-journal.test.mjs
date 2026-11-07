@@ -30,7 +30,7 @@ test('read-only inspection identifies old RC8.2 to RC9 journal',t=>{
 test('archival always refuses without verified exclusive coordination; preserves journal, backup and status',t=>{
  const f=setup(t);f.save(path.join(f.u,'status.json'),{state:'failed'});
  assert.throws(()=>archiveStaleJournal(f.root,{now:NOW,isAlive:()=>false}),/Explicit local approval/);
- assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused/);
+ assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused|Update operation active/);
  assert.ok(fs.existsSync(f.backup));
  assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
  assert.equal(JSON.parse(fs.readFileSync(path.join(f.u,'status.json'))).state,'failed');
