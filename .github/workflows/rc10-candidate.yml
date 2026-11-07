@@ -11,6 +11,7 @@ on:
       - '.github/rc10-recovery-patch.py'
       - '.github/qa-stale-journal.test.mjs'
       - '.github/qa-stale-journal.mjs'
+      - '.github/qa-stale-journal-integration.py'
       - '.github/workflows/rc10-candidate.yml'
   workflow_dispatch:
   workflow_call:
@@ -63,6 +64,7 @@ jobs:
           cp .github/rc10-stability.test.mjs source/tests/rc10-stability.test.mjs
           cp .github/rc10-hardening.test.mjs source/tests/rc10-hardening.test.mjs
           cp .github/qa-stale-journal.mjs source/bootstrap/stale-journal.mjs
+          python3 .github/qa-stale-journal-integration.py source
           cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
           find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
           (cd source && node --test tests/*.test.mjs)
