@@ -86,3 +86,12 @@ test('fixed updater uses token owner lock, not blind rmSync',()=>{
  assert.match(src,/acquireExclusiveUpdateLock\(root,\{kind:'fixed-update'\}\)\.release/);
  assert.doesNotMatch(src,/function lock\(root\)\{const f=fixedPaths\(root\)\.lock/);
 });
+
+test('all fixed-path activation and restoration mutations require current lock ownership',()=>{
+ const src=fs.readFileSync(new URL('../bootstrap/fixed-update.mjs',import.meta.url),'utf8');
+ assert.match(src,/unlock\.assertOwned\(\);activateFixed\(root,candidate,from,to\)/);
+ assert.match(src,/unlock\.assertOwned\(\);const done=finishFixed\(root\)/);
+ assert.match(src,/retryRestoreFixed\(root,\{restore:\(r\)=>\{unlock\.assertOwned\(\);return restoreFixed\(r\);\}\}\)/);
+ assert.match(src,/unlock\.assertOwned\(\);activateFixed\(root,candidate,current,m\.version\)/);
+ assert.match(src,/if\(fs\.existsSync\(p\.journal\)\)try\{unlock\.assertOwned\(\);restoreFixed\(root\);\}catch\{\}/);
+});
