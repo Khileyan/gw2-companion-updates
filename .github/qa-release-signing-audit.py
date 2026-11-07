@@ -77,3 +77,11 @@ for rel in ['bootstrap/fixed-update.mjs','bootstrap/Update-Progress.ps1','launch
   line=lines[i-1]
   if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
   print('ABORT-CODE',rel,i,line[:260])
+
+for rel, interval in [('bootstrap/fixed-update.mjs',(1,140)),('bootstrap/Update-Progress.ps1',(149,220)),('launcher/GW2-Companion.ps1',(574,610))]:
+ p=root/rel
+ print('FLOW-DETAIL',rel)
+ for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
+  if not(interval[0]<=i<=interval[1]):continue
+  if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
+  print('FLOW-CODE',rel,i,line[:250])
