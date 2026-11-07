@@ -116,6 +116,8 @@ jobs:
           if(-not $?){exit 1}
           node --test source/tests/rc10-stability.test.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node --test source/tests/qa-stale-journal.test.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Windows update/rollback safety regressions
         shell: powershell
         run: |
