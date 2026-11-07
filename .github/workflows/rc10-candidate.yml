@@ -323,6 +323,7 @@ jobs:
           # CI shell survives to assert the *exact* refusal exit code.
           & "$PSHOME/powershell.exe" -NoProfile -ExecutionPolicy Bypass -File $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
           if($LASTEXITCODE -ne 2){throw 'Active update lock must cause a controlled STOP'}
+          $global:LASTEXITCODE=0 # The simulated refusal was EXPECTED; do not fail the CI step.
       - name: Windows PowerShell 5.1 RC12 independent progress host regression
         shell: powershell
         run: |
