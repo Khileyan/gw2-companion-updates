@@ -35,3 +35,11 @@ test('verified launcher session source stores PID AND process start timestamp',(
  assert.match(ps,/started_at_utc=\$started/);
  assert.match(ps,/schema=2;pid=\$PID/);
 });
+
+test('Windows: live OS observer returns PID and creation timestamp of this Node process',{skip:process.platform!=='win32'},()=>{
+ const seen=observeWindowsProcess(process.pid);
+ assert.equal(seen.kind,'observed',JSON.stringify(seen));
+ assert.equal(seen.pid,process.pid);
+ assert.match(seen.started_at_utc,/^\d{4}-/);
+ assert.equal(seen.image.toLowerCase(),'node.exe');
+});
