@@ -232,6 +232,10 @@ jobs:
         with:
           name: rc12-qa-unsigned-NOT-FOR-INSTALLATION
           path: dist
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc12-unsigned-owner-signing-handoff
+          path: handoff
       - name: Verify unsigned RC11 package integrity on Windows without installation
         shell: powershell
         run: |
@@ -312,10 +316,10 @@ jobs:
           foreach($relative in @('bootstrap/fixed-update.mjs','bootstrap/Start-Managed.ps1','shared/bin/tunnel-client.exe')){
             [IO.File]::WriteAllText((Join-Path $fixture $relative),'test-file-exists')
           }
-          & $preflight -PackageZip (Resolve-Path dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path dist/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
+          & $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
           if($LASTEXITCODE -ne 0){throw 'Valid RC10 simulation unexpectedly rejected by read-only migration gate'}
           [IO.File]::WriteAllText((Join-Path $fixture 'updater/update.lock'),'simulated active transaction')
-          & $preflight -PackageZip (Resolve-Path dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path dist/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
+          & $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
           if($LASTEXITCODE -ne 2){throw 'Active update lock must cause a controlled STOP'}
       - name: Windows PowerShell 5.1 RC12 independent progress host regression
         shell: powershell
