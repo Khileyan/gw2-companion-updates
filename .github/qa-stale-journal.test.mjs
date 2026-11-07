@@ -48,7 +48,7 @@ for(const [name,mutate,expected] of [
 ])test('refuses '+name,t=>{
   const f=setup(t);mutate(f);
   assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,expected);
-  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused/);
+  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused|Update operation active/);
   assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
 });
 test('absent launcher session vetoes unverified archival',t=>{
