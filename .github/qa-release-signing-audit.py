@@ -22,3 +22,11 @@ for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
  if 24<=i<=38 or 47<=i<=54:
   if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
   print('PUBLISH-PATH',i,line[:240])
+
+for rel, intervals in [('app/publish-release.mjs',[(1,24),(38,47)]),('tools/build-release.py',[(1,57)])]:
+ p=root/rel
+ print('PUBLISH-SOURCE-BOUNDS',rel)
+ for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
+  if not any(a<=i<=b for a,b in intervals):continue
+  if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
+  print('PUBLISH-SOURCE',rel,i,line[:240])
