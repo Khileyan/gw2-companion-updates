@@ -1,0 +1,157 @@
+name: Build, Windows-test and publish signed RC9
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-rc9.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gw2-rc9-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Retrieve SHA-256 pinned published RC8.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p work dist
+          curl --fail --silent --show-error --location --retry 3 --proto '=https' --tlsv1.2 \
+            'https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.8.3/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip' -o work/rc83.zip
+          echo 'ef27fc3a018227ac2e7377fcddb1ac8f3f6d9ddba3f991feadd4bb8cfab0cc65  work/rc83.zip' | sha256sum -c -
+          (cd work && unzip -q rc83.zip && mv GW2-Account-Companion-v5.9.0-rc.8.3 source)
+      - name: Apply strictly scoped RC9 launcher change
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/rc9-patch.py work/source
+          node --input-type=module <<'JS'
+          import {compareVersions} from './work/source/app/updater.mjs';
+          if(compareVersions('5.9.0-rc.9','5.9.0-rc.8.3')!==1)throw Error('Incorrect upgrade ordering');
+          JS
+          find work/source/app work/source/bootstrap -name '*.mjs' -type f -print0 | xargs -0 -n1 node --check
+      - name: Run Node regression suite and deterministic build
+        shell: bash
+        run: |
+          set -euo pipefail
+          (cd work/source && node --test tests/*.test.mjs)
+          python3 work/source/tools/build-release.py dist/GW2-Account-Companion-v5.9.0-rc.9-All-in-One.zip
+          python3 work/source/tools/build-release.py dist/independent.zip
+          cmp dist/GW2-Account-Companion-v5.9.0-rc.9-All-in-One.zip dist/independent.zip
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './work/source/app/install-verified.mjs';
+          inspectReleaseZip(fs.readFileSync('dist/GW2-Account-Companion-v5.9.0-rc.9-All-in-One.zip'),{version:'5.9.0-rc.9'});
+          JS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc9-reviewed-source
+          path: work/source/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc9-reviewed-release
+          path: dist/GW2-Account-Companion-v5.9.0-rc.9-All-in-One.zip
+          if-no-files-found: error
+
+  windows:
+    needs: prepare
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc9-preflight-source
+          path: source
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: PS5.1 parser and isolated status transition test
+        shell: powershell
+        run: |
+          foreach($relative in @('bootstrap/Start-Managed.ps1','bootstrap/Update-Progress.ps1','launcher/GW2-Companion.ps1')){
+            $tokens=$null;$errors=$null
+            [Management.Automation.Language.Parser]::ParseFile((Resolve-Path (Join-Path source $relative)).Path,[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){throw "PowerShell 5.1 syntax invalid: $relative"}
+          }
+          & ./.github/rc9-tray-test.ps1 -Launcher (Resolve-Path source/launcher/GW2-Companion.ps1).Path
+          if(-not $?){exit 1}
+      - name: Windows regression suite and atomic update status I/O
+        shell: powershell
+        run: |
+          Push-Location source
+          try {
+            node --test tests/rc83-handoff.test.mjs tests/rollback-safety.test.mjs tests/v590-fixed-layout.test.mjs
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          }finally{Pop-Location}
+          $env:LOCALAPPDATA=Join-Path $env:RUNNER_TEMP 'gw2-rc9-test'
+          node --input-type=module -e "import {atomicJSON,loadJSON} from './source/bootstrap/fixed-core.mjs';import path from 'node:path';const f=path.join(process.env.LOCALAPPDATA,'updater','status.json');for(let i=0;i<100;i++){atomicJSON(f,{i});if(loadJSON(f).i!==i)throw Error('Readback mismatch')}"
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+
+
+
+  release:
+    needs: [prepare, windows]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc9-reviewed-source
+          path: source
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc9-reviewed-release
+          path: dist
+      - name: Verify immutable signed release candidate
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view v5.9.0-rc.9 --repo Khileyan/gw2-companion-updates >/dev/null 2>&1; then
+            echo 'Immutable RC9 release already exists. Refusing overwrite.' >&2; exit 1
+          fi
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './source/app/install-verified.mjs';
+          inspectReleaseZip(fs.readFileSync('dist/GW2-Account-Companion-v5.9.0-rc.9-All-in-One.zip'),{version:'5.9.0-rc.9'});
+          JS
+      - name: Sign and publish using existing owner-approved signing key
+        shell: bash
+        env:
+          PRIVATE_KEY_PEM: ${{ secrets.GW2_ED25519_SIGNING_KEY_PEM }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PRIVATE_KEY_PEM" ]; then echo 'Missing publisher signing key'; exit 1; fi
+          umask 077
+          trap 'rm -f "$RUNNER_TEMP/publisher-private.pem"' EXIT
+          printf '%s\n' "$PRIVATE_KEY_PEM" > "$RUNNER_TEMP/publisher-private.pem"
+          mkdir -p source/config
+          cp .github/rc8-overlay/publisher-public.pem source/config/publisher-public.pem
+          cat > source/config/update-source.json <<'JSON'
+          {"schema":1,"channel":"preview","manifest_url":"https://raw.githubusercontent.com/Khileyan/gw2-companion-updates/main/preview.json","publisher_fingerprint_sha256":"84797eaaf61d8f757ecfc6f65a5cbe6dc7952063fd970bcb2a745aca8cb6f045"}
+          JSON
+          node source/app/publish-release.mjs \
+            dist/GW2-Account-Companion-v5.9.0-rc.9-All-in-One.zip \
+            "$RUNNER_TEMP/publisher-private.pem"
