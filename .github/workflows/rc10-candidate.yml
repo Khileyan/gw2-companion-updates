@@ -25,6 +25,8 @@ on:
       - '.github/qa-rc11-version.py'
       - '.github/qa-rc11-package-smoke.mjs'
       - '.github/qa-release-signing-audit.py'
+      - '.github/RC11-LOCAL-PUBLISH.ps1'
+      - '.github/RC11-SIGNING-HANDOFF.md'
       - '.github/qa-recovery-lock.test.mjs'
       - '.github/qa-launcher-session-identity.py'
       - '.github/qa-launcher-process-identity.mjs'
@@ -186,6 +188,17 @@ jobs:
         run: |
           node .github/qa-rc11-package-smoke.mjs dist/rc11-qa-unsigned.zip
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - name: Verify local-only RC11 owner publish script syntax; never execute publishing
+        shell: powershell
+        run: |
+          $file=(Resolve-Path .github/RC11-LOCAL-PUBLISH.ps1).Path
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count){$errors | ForEach-Object {Write-Host $_.Message};throw 'RC11 publisher handoff syntax error'}
+          $src=Get-Content -LiteralPath $file -Raw
+          foreach($required in @('PUBLISH RC11','Get-FileHash','-Publish','SigningKeyFile')){
+            if(-not $src.Contains($required)){throw "Missing RC11 local publication safety gate: $required"}
+          }
       - name: PowerShell 5.1 syntax and manual update UI regression
         shell: powershell
         run: |
