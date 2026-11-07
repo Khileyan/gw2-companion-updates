@@ -15,7 +15,7 @@ function setup(t,opts={}){
   for(const dir of ['app','launcher','assets','projects','bootstrap'])fs.mkdirSync(path.join(backup,dir),{recursive:true});
   fs.mkdirSync(path.join(root,'app'));
   const save=(p,x)=>fs.writeFileSync(p,JSON.stringify(x));
-  save(path.join(u,'launcher-session.json'),{pid:2147483646});
+  save(path.join(u,'launcher-session.json'),{schema:2,pid:2147483646,version:'5.9.0-rc.9',started_at_utc:'2026-11-07T14:28:22.123Z'});
   save(path.join(root,'app','package.json'),{version:opts.installed??'5.9.0-rc.9'});
   save(path.join(root,'app-version.json'),{version:opts.marker??'5.9.0-rc.9'});
   save(path.join(backup,'app','package.json'),{version:'5.9.0-rc.8.2'});
@@ -23,14 +23,14 @@ function setup(t,opts={}){
   return {root,u,backup,save};
 }
 test('read-only inspection identifies old RC8.2 to RC9 journal',t=>{
-  const f=setup(t);const check=inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false});
+  const f=setup(t);const check=inspectStaleJournal(f.root,{now:NOW,verifySession:()=> 'process_exited'});
   assert.equal(check.safe_to_archive,false);assert.equal(check.reason,'requires_offline_verified_reconciliation');assert.equal(check.to,'5.9.0-rc.9');
   assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
 });
 test('archival always refuses without verified exclusive coordination; preserves journal, backup and status',t=>{
  const f=setup(t);f.save(path.join(f.u,'status.json'),{state:'failed'});
- assert.throws(()=>archiveStaleJournal(f.root,{now:NOW,isAlive:()=>false}),/Explicit local approval/);
- assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused|Update operation active/);
+ assert.throws(()=>archiveStaleJournal(f.root,{now:NOW,verifySession:()=> 'process_exited'}),/Explicit local approval/);
+ assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,verifySession:()=> 'process_exited'}),/Archive refused|Update operation active/);
  assert.ok(fs.existsSync(f.backup));
  assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
  assert.equal(JSON.parse(fs.readFileSync(path.join(f.u,'status.json'))).state,'failed');
@@ -47,18 +47,18 @@ for(const [name,mutate,expected] of [
   ['invalid backup path',({u,save})=>{const p=path.join(u,'fixed-transaction.json');const x=JSON.parse(fs.readFileSync(p));x.backup='/not/under/updater';save(p,x);},'unknown_transaction']
 ])test('refuses '+name,t=>{
   const f=setup(t);mutate(f);
-  assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,expected);
-  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused|Update operation active/);
+  assert.equal(inspectStaleJournal(f.root,{now:NOW,verifySession:()=> 'process_exited'}).reason,expected);
+  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,verifySession:()=> 'process_exited'}),/Archive refused|Update operation active/);
   assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
 });
 test('absent launcher session vetoes unverified archival',t=>{
   const f=setup(t);fs.rmSync(path.join(f.u,'launcher-session.json'));
-  assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,'launcher_state_unverified');
-  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused/);
+  assert.equal(inspectStaleJournal(f.root,{now:NOW,verifySession:()=> 'process_exited'}).reason,'launcher_state_unverified');
+  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,verifySession:()=> 'process_exited'}),/Archive refused/);
 });
 test('running launcher session vetoes archival',t=>{
-  const f=setup(t);f.save(path.join(f.u,'launcher-session.json'),{pid:1234});
-  assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>true}).reason,'launcher_still_running');
+  const f=setup(t);f.save(path.join(f.u,'launcher-session.json'),{schema:2,pid:1234,version:'5.9.0-rc.9',started_at_utc:'2026-11-07T14:28:22.123Z'});
+  assert.equal(inspectStaleJournal(f.root,{now:NOW,verifySession:()=> 'launcher_still_running'}).reason,'launcher_still_running');
 });
 
 test('pending transaction has its own sanitized error code and a blocking GUI warning',()=>{
@@ -107,11 +107,23 @@ test('future timestamp and symlink tricks are fail closed',t=>{
  const original=JSON.parse(fs.readFileSync(tx,'utf8'));
  original.at=NOW+10000;
  fs.writeFileSync(tx,JSON.stringify(original));
- assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,'transaction_too_recent');
+ assert.equal(inspectStaleJournal(f.root,{now:NOW,verifySession:()=> 'process_exited'}).reason,'transaction_too_recent');
  original.at=NOW-150000;
  fs.writeFileSync(tx,JSON.stringify(original));
  const s=path.join(f.u,'linked-transaction.json');
  fs.renameSync(tx,s);
  try{fs.symlinkSync(s,tx,'file');}catch(e){if(process.platform==='win32')return;throw e;}
- assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,'unsafe_journal_path');
+ assert.equal(inspectStaleJournal(f.root,{now:NOW,verifySession:()=> 'process_exited'}).reason,'unsafe_journal_path');
+});
+
+test('legacy PID-only session is never trusted as a safely exited process',t=>{
+ const f=setup(t);
+ f.save(path.join(f.u,'launcher-session.json'),{pid:2147483646,version:'5.9.0-rc.9'});
+ assert.equal(inspectStaleJournal(f.root,{now:NOW}).reason,'launcher_identity_unverified');
+});
+test('PID reuse during review blocks journal recovery',t=>{
+ const f=setup(t);
+ const s=inspectStaleJournal(f.root,{now:NOW,verifySession:()=> 'pid_reused_or_identity_mismatch'});
+ assert.equal(s.safe_to_archive,false);
+ assert.equal(s.reason,'launcher_identity_unverified');
 });
