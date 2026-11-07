@@ -4,7 +4,7 @@ from pathlib import Path
 import re,sys
 root=Path(sys.argv[1]) if len(sys.argv)>1 else Path('source')
 paths=[root/'bootstrap/fixed-update.mjs',root/'bootstrap/fixed-core.mjs',root/'bootstrap/Start-Managed.ps1',root/'bootstrap/fixed-confirm.mjs']
-pattern=re.compile(r'recoverFixed|rollbackFixed|retryRestoreFixed|function lock\(|release\(|unlock\(|fs\.(rmSync|renameSync|writeFileSync)|action===|performFixedUpdate|finally\s*\{',re.I)
+pattern=re.compile(r'recoverFixed|finishFixed|rollbackFixed|retryRestoreFixed|function lock\(|release\(|unlock\(|fs\.(rmSync|renameSync|writeFileSync)|action===|performFixedUpdate|finally\s*\{',re.I)
 for p in paths:
  lines=p.read_text(encoding='utf-8-sig').splitlines()
  indexes=[i for i,line in enumerate(lines) if pattern.search(line)]
