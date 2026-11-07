@@ -10,6 +10,6 @@ for directory in ('app','bootstrap','launcher'):
   try:lines=file.read_text(encoding='utf-8-sig').splitlines()
   except UnicodeDecodeError:continue
   for idx,line in enumerate(lines,1):
-   if any(re.search(r'\\b'+re.escape(term)+r'\\b',line) for term in names):
+   if any(re.search(r'\b'+re.escape(term)+r'\b',line) for term in names):
     print(f'CALLER {file.relative_to(root)}:{idx}: {line[:240]}')
 print('CALLER AUDIT END')
