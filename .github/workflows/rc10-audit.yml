@@ -1,0 +1,78 @@
+name: RC10 source audit (non-publishing)
+
+on:
+  push:
+    branches: [feature/rc10-stability]
+    paths:
+      - '.github/workflows/rc10-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Obtain reviewed RC8 source
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: reviewed-rollback-source
+          path: source
+          run-id: 42372776392
+          github-token: ${{ github.token }}
+      - name: Reconstruct byte-identical published RC9
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/rc83-patch.py source
+          cp .github/rc83-handoff.test.mjs source/tests/rc83-handoff.test.mjs
+          python3 .github/rc9-patch.py source
+          mkdir -p dist
+          python3 source/tools/build-release.py dist/rc9.zip
+          echo '0a14777d4724da0fc88c9198a61ef1f03e0aa185e89e0367c2c09f095782a271  dist/rc9.zip' | sha256sum -c -
+      - name: Print focused nonsecret source audit
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          for rel,needles,before,after in [
+            ('launcher/GW2-Companion.ps1',['$btnUpdate=', '$btnUpdate.Add_Click','NextAutoUpdateCheck','availableFile','btnUpdate.Text','function Quit-Application'],6,12),
+            ('bootstrap/check-release.mjs',['import ','available.json','check-status.json','getManifest','verify'],2,8),
+            ('bootstrap/fixed-update.mjs',['recover','rollback','status.json','transaction','function '],3,6),
+            ('app/update-control.mjs',['companionUpdateStatus','verifiedCheck','companionUpdateRequest'],2,8),
+          ]:
+            p=Path('source')/rel
+            if not p.exists():
+              print('MISSING',rel)
+              continue
+            lines=p.read_text(encoding='utf-8-sig').splitlines()
+            spans=[]
+            for i,line in enumerate(lines):
+              if any(q in line for q in needles):
+                spans.append((max(0,i-before),min(len(lines),i+after)))
+            merged=[]
+            for lo,hi in spans:
+              if merged and lo<=merged[-1][1]:merged[-1]=(merged[-1][0],max(hi,merged[-1][1]))
+              else:merged.append((lo,hi))
+            print('===== ',rel,' total_lines=',len(lines),' =====')
+            for lo,hi in merged[:18]:
+              print('----- lines',lo+1,'-',hi)
+              for j in range(lo,hi):
+                # Do not emit literal credentials or any runtime config values.
+                if any(x in lines[j].lower() for x in ['private_key','api_key','authorization','bearer ','token=']):
+                  print(f'{j+1}: [sensitive line omitted]');continue
+                print(f'{j+1}: {lines[j][:240]}')
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc10-reviewed-source
+          path: source/
+          if-no-files-found: error
+
+# Intentionally no release job, no signing key, and no update-manifest writes.
