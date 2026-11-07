@@ -17,6 +17,7 @@ on:
       - '.github/qa-exclusive-update-lock.mjs'
       - '.github/qa-exclusive-update-lock.test.mjs'
       - '.github/qa-fixed-lock-integration.py'
+      - '.github/qa-process-identity-audit.py'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -74,6 +75,7 @@ jobs:
           python3 .github/qa-stale-journal-integration.py source
           python3 .github/qa-fixed-lock-integration.py source
           python3 .github/qa-stale-journal-diagnostics.py source
+          python3 .github/qa-process-identity-audit.py source
           cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
           cp .github/qa-exclusive-update-lock.test.mjs source/tests/qa-exclusive-update-lock.test.mjs
           find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
