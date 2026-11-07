@@ -62,3 +62,18 @@ for rel in ['bootstrap/Update-Progress.ps1','bootstrap/Start-Managed.ps1','launc
   line=lines[i-1]
   if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
   print('FAILURE-CODE',rel,i,line[:260])
+
+for rel in ['bootstrap/fixed-update.mjs','bootstrap/Update-Progress.ps1','launcher/GW2-Companion.ps1']:
+ p=root/rel
+ lines=p.read_text(encoding='utf-8-sig').splitlines()
+ print('ABORT-DIAG',rel,len(lines))
+ needles=['update_aborted','not-activated','LauncherPid','progressProcess','ExitRequested','Quit-Application','Kill','update.lock','writeStatus','status.json']
+ ranges=[]
+ for i,line in enumerate(lines,1):
+  if any(t in line for t in needles):
+   ranges.append((max(1,i-5),min(len(lines),i+6)))
+ selected=set(i for a,b in ranges for i in range(a,b+1))
+ for i in sorted(selected):
+  line=lines[i-1]
+  if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
+  print('ABORT-CODE',rel,i,line[:260])
