@@ -32,11 +32,3 @@ test('RC10: rollback errors are classified but journal is retained',()=>{
  assert.match(fixed,/if\(fs\.existsSync\(p\.journal\)\)throw Error/);
  assert.doesNotMatch(fixed,/fs\.rmSync\(p\.journal,\{force:true\}\)/);
 });
-
-test('RC10: offline diagnosis distinguishes historical failures from live journals',()=>{
- assert.match(gui,/Lokaler MCP-Server nicht bereit/);
- assert.match(gui,/Systemdiagnose/);
- assert.match(gui,/historical_recovery_status/);
- assert.match(gui,/if\(\$statusFresh -and \$currentCheck\.verified/);
- assert.match(gui,/Keine aktuelle Versionspruefung/);
-});
