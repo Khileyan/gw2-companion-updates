@@ -23,6 +23,8 @@ on:
       - '.github/qa-recovery-lock-integration.py'
       - '.github/qa-confirm-lock-integration.py'
       - '.github/qa-rc11-version.py'
+      - '.github/qa-rc12-progress-patch.py'
+      - '.github/qa-rc12-progress.test.mjs'
       - '.github/qa-rc11-package-smoke.mjs'
       - '.github/qa-release-signing-audit.py'
       - '.github/RC11-LOCAL-PUBLISH.ps1'
@@ -142,6 +144,26 @@ jobs:
           const entries=inspectReleaseZip(fs.readFileSync('dist/rc11-qa-unsigned.zip'),{version:'5.9.0-rc.11'}).records;
           if(!entries.length)throw Error('Empty RC11 candidate archive');
           JS
+      - name: RC12 non-publishing hotfix candidate build and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a rc11-source rc12-source
+          python3 .github/qa-rc12-progress-patch.py rc12-source
+          node --test .github/qa-rc12-progress.test.mjs
+          (cd rc12-source && find app bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check)
+          python3 rc12-source/tools/build-release.py dist/rc12-qa-unsigned.zip
+          python3 rc12-source/tools/build-release.py dist/rc12-independent.zip
+          cmp dist/rc12-qa-unsigned.zip dist/rc12-independent.zip
+          cp dist/rc12-qa-unsigned.zip dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip
+          (cd dist && sha256sum GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip > RC12-SHA256SUMS.txt)
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './rc12-source/app/install-verified.mjs';
+          import {compareVersions} from './rc12-source/app/updater.mjs';
+          if(compareVersions('5.9.0-rc.12','5.9.0-rc.11')!==1)throw Error('RC12 must exceed signed RC11');
+          inspectReleaseZip(fs.readFileSync('dist/rc12-qa-unsigned.zip'),{version:'5.9.0-rc.12'});
+          JS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: rc10-candidate-source
@@ -166,6 +188,20 @@ jobs:
           if-no-files-found: error
 
 
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc12-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist/rc12-qa-unsigned.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc12-unsigned-owner-signing-handoff
+          path: |
+            dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip
+            dist/RC12-SHA256SUMS.txt
+          if-no-files-found: error
+
+
   windows:
     needs: candidate
     runs-on: windows-2022
@@ -182,6 +218,10 @@ jobs:
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: rc11-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc12-qa-unsigned-NOT-FOR-INSTALLATION
           path: dist
       - name: Verify unsigned RC11 package integrity on Windows without installation
         shell: powershell
@@ -217,6 +257,22 @@ jobs:
             node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(v.version!=='5.9.0-rc.11')process.exit(1)" $marker
             if($LASTEXITCODE -ne 0){throw 'Temporary version marker invalid'}
           }finally{Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue}
+      - name: Windows PowerShell 5.1 RC12 independent progress host regression
+        shell: powershell
+        run: |
+          $dir=Join-Path $env:RUNNER_TEMP 'rc12-staging-syntax'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          Expand-Archive -LiteralPath (Resolve-Path dist/rc12-qa-unsigned.zip).Path -DestinationPath $dir -Force
+          $root=Join-Path $dir 'GW2-Account-Companion-v5.9.0-rc.12'
+          foreach($rel in @('launcher/GW2-Companion.ps1','bootstrap/Update-Progress.ps1','bootstrap/Start-Managed.ps1')){
+            $target=Join-Path $root $rel
+            $tokens=$null;$errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($target,[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){$errors|ForEach-Object {Write-Host $_.Message};throw "RC12 syntax error: $rel"}
+          }
+          $env:RC12_SOURCE=$root
+          node --test .github/qa-rc12-progress.test.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: PowerShell 5.1 syntax and manual update UI regression
         shell: powershell
         run: |
