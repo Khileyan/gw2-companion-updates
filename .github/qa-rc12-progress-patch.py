@@ -95,8 +95,8 @@ patch('bootstrap/fixed-update.mjs',[
   "   failureStage='staged';\n   event(root,'staged',{version:to});"),
  ("   event(root,'waiting_for_launcher',{version:to});",
   "   failureStage='launcher_shutdown';\n   event(root,'waiting_for_launcher',{version:to});"),
- ("      event(root,'failed',{phase:'not-activated',version:from??null,error_code:code});",
-  "      event(root,'failed',{phase:'not-activated',version:from??null,error_code:code,failure_stage:failureStage});")
+ ("     event(root,'failed',{phase:'not-activated',version:from??null,error_code:code});",
+  "     event(root,'failed',{phase:'not-activated',version:from??null,error_code:code,failure_stage:failureStage});")
 ])
 for rel in ('app/package.json','app-version.json','app/engine.mjs','tools/build-release.py'):
  p=root/rel
