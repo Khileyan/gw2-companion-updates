@@ -24,17 +24,16 @@ function setup(t,opts={}){
 }
 test('read-only inspection identifies old RC8.2 to RC9 journal',t=>{
   const f=setup(t);const check=inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false});
-  assert.equal(check.safe_to_archive,true);assert.equal(check.to,'5.9.0-rc.9');
+  assert.equal(check.safe_to_archive,false);assert.equal(check.reason,'requires_offline_verified_reconciliation');assert.equal(check.to,'5.9.0-rc.9');
   assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
 });
-test('explicit consent required; retain backup and status after archival',t=>{
-  const f=setup(t);f.save(path.join(f.u,'status.json'),{state:'failed'});
-  assert.throws(()=>archiveStaleJournal(f.root,{now:NOW,isAlive:()=>false}),/Explicit local approval/);
-  const out=archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false});
-  assert.equal(out.archived,true);assert.ok(fs.existsSync(f.backup));
-  assert.ok(fs.existsSync(path.join(f.u,out.archive_name)));
-  assert.ok(!fs.existsSync(path.join(f.u,'fixed-transaction.json')));
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(f.u,'status.json'))),{state:'failed'});
+test('archival always refuses without verified exclusive coordination; preserves journal, backup and status',t=>{
+ const f=setup(t);f.save(path.join(f.u,'status.json'),{state:'failed'});
+ assert.throws(()=>archiveStaleJournal(f.root,{now:NOW,isAlive:()=>false}),/Explicit local approval/);
+ assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused/);
+ assert.ok(fs.existsSync(f.backup));
+ assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
+ assert.equal(JSON.parse(fs.readFileSync(path.join(f.u,'status.json'))).state,'failed');
 });
 for(const [name,mutate,expected] of [
   ['active update lock',({u})=>fs.writeFileSync(path.join(u,'update.lock'),''),'update_in_progress_or_locked'],
@@ -92,15 +91,27 @@ test('end-to-end updater CLI inspects and archives only with explicit local cons
   const run=(...args)=>spawnSync(process.execPath,[cli,...args],{encoding:'utf8',env:{...process.env,LOCALAPPDATA:base}});
   const check=run('inspect-stale');
   assert.equal(check.status,0,check.stderr);
-  assert.equal(JSON.parse(check.stdout).safe_to_archive,true);
+  assert.equal(JSON.parse(check.stdout).safe_to_archive,false);
   const denied=run('archive-stale');
   assert.notEqual(denied.status,0);
   assert.ok(fs.existsSync(txPath));
   const allowed=run('archive-stale','--approve');
-  assert.equal(allowed.status,0,allowed.stderr);
-  const outcome=JSON.parse(allowed.stdout);
-  assert.equal(outcome.archived,true);
-  assert.ok(fs.existsSync(path.join(root,'updater',outcome.archive_name)));
+  assert.notEqual(allowed.status,0);
+  assert.ok(fs.existsSync(txPath));
   assert.ok(fs.existsSync(journal.backup));
-  assert.equal(JSON.parse(run('inspect-stale').stdout).reason,'no_journal');
+});
+
+test('future timestamp and symlink tricks are fail closed',t=>{
+ const f=setup(t);
+ const tx=path.join(f.u,'fixed-transaction.json');
+ const original=JSON.parse(fs.readFileSync(tx,'utf8'));
+ original.at=NOW+10000;
+ fs.writeFileSync(tx,JSON.stringify(original));
+ assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,'transaction_too_recent');
+ original.at=NOW-150000;
+ fs.writeFileSync(tx,JSON.stringify(original));
+ const s=path.join(f.u,'linked-transaction.json');
+ fs.renameSync(tx,s);
+ try{fs.symlinkSync(s,tx,'file');}catch(e){if(process.platform==='win32')return;throw e;}
+ assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,'unsafe_journal_path');
 });
