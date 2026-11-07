@@ -2,7 +2,7 @@ name: RC10 stability candidate regression (never publish)
 
 on:
   push:
-    branches: [feature/rc10-stability]
+    branches: [feature/rc10-stability, quality/rc10-stale-journal-regression]
     paths:
       - '.github/rc10-patch.py'
       - '.github/rc10-stability.test.mjs'
@@ -10,6 +10,12 @@ on:
       - '.github/rc10-hardening-patch.py'
       - '.github/rc10-recovery-patch.py'
       - '.github/workflows/rc10-candidate.yml'
+      - '.github/qa-stale-journal.mjs'
+      - '.github/qa-stale-journal.test.mjs'
+      - '.github/qa-stale-journal-integration.py'
+      - '.github/qa-stale-journal-diagnostics.py'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
   workflow_call:
 
@@ -60,11 +66,16 @@ jobs:
           python3 .github/rc10-recovery-patch.py source
           cp .github/rc10-stability.test.mjs source/tests/rc10-stability.test.mjs
           cp .github/rc10-hardening.test.mjs source/tests/rc10-hardening.test.mjs
+          cp .github/qa-stale-journal.mjs source/bootstrap/stale-journal.mjs
+          python3 .github/qa-stale-journal-integration.py source
+          python3 .github/qa-stale-journal-diagnostics.py source
+          cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
           find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
           (cd source && node --test tests/*.test.mjs)
           python3 source/tools/build-release.py dist/rc10-candidate.zip
           python3 source/tools/build-release.py dist/independent.zip
           cmp dist/rc10-candidate.zip dist/independent.zip
+          unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/stale-journal.mjs'
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import {inspectReleaseZip} from './source/app/install-verified.mjs';
@@ -108,6 +119,8 @@ jobs:
           & ./.github/rc9-tray-test.ps1 -Launcher (Resolve-Path source/launcher/GW2-Companion.ps1).Path
           if(-not $?){exit 1}
           node --test source/tests/rc10-stability.test.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node --test source/tests/qa-stale-journal.test.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Windows update/rollback safety regressions
         shell: powershell
