@@ -29,7 +29,7 @@ test('symlink updater directory refuses lock',t=>{
  const r=create(t),other=fs.mkdtempSync(path.join(os.tmpdir(),'gw2-lock-target-'));
  t.after(()=>fs.rmSync(other,{recursive:true,force:true}));fs.rmSync(path.join(r,'updater'),{recursive:true});
  try{fs.symlinkSync(other,path.join(r,'updater'),'dir');}catch(e){if(process.platform==='win32')return;throw e;}
- assert.throws(()=>withExclusiveUpdateLock(r,()=>{}),/Unsafe updater directory/);
+ assert.throws(()=>withExclusiveUpdateLock(r,()=>{}),/Unsafe update root/);
 });
 test('second Node process observes held exclusive lock',t=>{
  const r=create(t),url=new URL('../bootstrap/exclusive-update-lock.mjs',import.meta.url).href;
