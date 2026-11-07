@@ -71,7 +71,7 @@ export function inspectStaleJournal(root,{now=Date.now(),minAgeMs=120000,verifyS
   return {safe_to_archive:false,reason:'requires_offline_verified_reconciliation',
     installed_version:installed,from:t.from,to:t.to};
 }
-export function archiveStaleJournal(root,{approved=false,now=Date.now(),minAgeMs=120000,isAlive=pidAlive}={}){
+export function archiveStaleJournal(root,{approved=false,now=Date.now(),minAgeMs=120000,verifySession=verifyLauncherSession}={}){
   if(approved!==true)throw Error('Explicit local approval required');
   return withExclusiveUpdateLock(root,({assertOwned})=>{
     // Lock is shared with the production updater. Never archive without owning it.
