@@ -28,8 +28,12 @@ if($got -cne $expected){throw 'SHA256-Pruefsumme stimmt nicht. Abbruch.'}
 if($LASTEXITCODE -ne 0){throw 'GitHub CLI nicht angemeldet. Zuerst gh auth login.'}
 $repoName=& gh repo view $repo --json nameWithOwner --jq '.nameWithOwner'
 if($LASTEXITCODE -ne 0 -or $repoName.Trim() -cne $repo){throw 'Zugriff auf das richtige GitHub-Repository fehlt.'}
-& gh release view "v$version" --repo $repo --json tagName 2>$null | Out-Null
-if($LASTEXITCODE -eq 0){throw 'RC11-Release existiert bereits. Nicht ueberschreiben!'}
+$existing=& gh release list --repo $repo --json tagName --limit 100
+if($LASTEXITCODE -ne 0){throw 'GitHub Release-Liste nicht lesbar. Abbruch.'}
+$releaseList=@($existing | ConvertFrom-Json)
+if(@($releaseList | Where-Object {$_.tagName -ceq "v$version"}).Count -gt 0){
+ throw 'RC11-Release existiert bereits. Nicht ueberschreiben!'
+}
 Write-Host "Paketpruefung erfolgreich: $name" -ForegroundColor Green
 Write-Host "SHA256: $got"
 Write-Host 'Private Signierschluesseldatei verbleibt lokal.'
