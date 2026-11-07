@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import {withExclusiveUpdateLock} from './exclusive-update-lock.mjs';
+import {verifyLauncherSession} from './launcher-process-identity.mjs';
 
 const V=/^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$/i;
 const PARTS=['app','launcher','assets','projects','bootstrap'];
@@ -22,12 +23,8 @@ function noSymlinkAncestors(file,stop){
  }
  return true;
 }
-function pidAlive(pid){
-  if(!Number.isSafeInteger(pid)||pid<1)return false;
-  try{process.kill(pid,0);return true;}catch(e){return e.code==='EPERM';}
-}
 function reason(code){return {safe_to_archive:false,reason:code};}
-export function inspectStaleJournal(root,{now=Date.now(),minAgeMs=120000,isAlive=pidAlive}={}){
+export function inspectStaleJournal(root,{now=Date.now(),minAgeMs=120000,verifySession=verifyLauncherSession}={}){
   const base=path.resolve(root),u=path.join(base,'updater'),j=path.join(u,'fixed-transaction.json');
   if(!exists(j))return reason('no_journal');
   if(!safeDirectory(base)||!safeDirectory(u)||!safeRegular(j)||!noSymlinkAncestors(j,base))
@@ -44,12 +41,11 @@ export function inspectStaleJournal(root,{now=Date.now(),minAgeMs=120000,isAlive
   }
   const session=path.join(u,'launcher-session.json');
   if(!exists(session)||!safeRegular(session))return reason('launcher_state_unverified');
-  if(exists(session)){
-    let pid;
-    try{pid=read(session).pid;}catch{return reason('unreadable_launcher_session');}
-    if(!Number.isSafeInteger(pid))return reason('unknown_launcher_session');
-    if(isAlive(pid))return reason('launcher_still_running');
-  }
+  let launcherSession;
+  try{launcherSession=read(session);}catch{return reason('unreadable_launcher_session');}
+  const identity=verifySession(launcherSession);
+  if(identity==='launcher_still_running')return reason('launcher_still_running');
+  if(identity!=='process_exited')return reason('launcher_identity_unverified');
   let installed,marker,prior;
   try{
     if(!safeRegular(path.join(base,'app','package.json'))||
@@ -80,7 +76,7 @@ export function archiveStaleJournal(root,{approved=false,now=Date.now(),minAgeMs
   return withExclusiveUpdateLock(root,({assertOwned})=>{
     // Lock is shared with the production updater. Never archive without owning it.
     // Inspection remains fail-closed until validated process identity exists.
-    const status=inspectStaleJournal(root,{now,minAgeMs,isAlive});
+    const status=inspectStaleJournal(root,{now,minAgeMs,verifySession});
     if(!status.safe_to_archive)throw Error('Archive refused: '+status.reason);
     assertOwned();
     const updater=path.join(path.resolve(root),'updater');
