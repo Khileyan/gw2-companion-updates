@@ -58,13 +58,13 @@ test('pending transaction has its own sanitized error code and a blocking GUI wa
   const fixed=fs.readFileSync(new URL('../bootstrap/fixed-update.mjs',import.meta.url),'utf8');
   const gui=fs.readFileSync(new URL('../launcher/GW2-Companion.ps1',import.meta.url),'utf8');
   assert.match(fixed,/pending_fixed_transaction/);
-  assert.match(gui,/\\$progress\\.error_code -eq 'pending_fixed_transaction'/);
+  assert.match(gui,/\$progress\.error_code -eq 'pending_fixed_transaction'/);
   assert.match(gui,/Vorheriges Update nicht abgeschlossen/);
-  assert.match(gui,/\\$btnUpdate\\.Enabled=\\$false/);
+  assert.match(gui,/\$btnUpdate\.Enabled=\$false/);
 });
 test('inspection and archival are separate CLI routes; archive requires local approval',()=>{
   const fixed=fs.readFileSync(new URL('../bootstrap/fixed-update.mjs',import.meta.url),'utf8');
   assert.match(fixed,/action==='inspect-stale'/);
   assert.match(fixed,/action==='archive-stale'/);
-  assert.match(fixed,/if\\(!process\\.argv\\.includes\\('--approve'\\)\\)throw Error/);
+  assert.match(fixed,/if\(!process\.argv\.includes\('--approve'\)\)throw Error/);
 });
