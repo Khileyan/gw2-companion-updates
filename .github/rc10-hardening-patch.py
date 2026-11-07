@@ -35,7 +35,7 @@ once("                    }elseif($progress.state -eq 'failed'){\n              
 """                    }elseif($progress.state -eq 'failed'){
                         $lblHelp.Text='Letztes Update fehlgeschlagen; aktuelle Version unveraendert.'
                     }elseif($progress.state -eq 'recovery_required'){
-                        $journal=Join-Path $script:ManagedRoot 'updater\fixed-transaction.json'
+                        $journal=Join-Path $script:ManagedRoot 'updater\\fixed-transaction.json'
                         if(Test-Path -LiteralPath $journal){
                             $lblHelp.Text='Aktive Update-Wiederherstellung erforderlich. Bitte Diagnoseprotokoll pruefen.'
                             $btnUpdate.Enabled=$false
@@ -45,7 +45,7 @@ once("                    }elseif($progress.state -eq 'failed'){\n              
 once("        # No account data, no keys.\n        [Windows.Forms.MessageBox]::Show($m,'Diagnose','OK','Information')",
 """        if($script:ManagedRoot){
             $statusFile=Join-Path $script:ManagedRoot 'updater\status.json'
-            $journalFile=Join-Path $script:ManagedRoot 'updater\fixed-transaction.json'
+            $journalFile=Join-Path $script:ManagedRoot 'updater\\fixed-transaction.json'
             $active=Test-Path -LiteralPath $journalFile
             $updateState='none'
             if(Test-Path -LiteralPath $statusFile){
