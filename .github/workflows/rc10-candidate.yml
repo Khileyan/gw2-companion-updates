@@ -11,6 +11,7 @@ on:
       - '.github/rc10-recovery-patch.py'
       - '.github/workflows/rc10-candidate.yml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
