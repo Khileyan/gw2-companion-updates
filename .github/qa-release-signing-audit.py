@@ -39,3 +39,10 @@ for rel in ['bootstrap/check-release.mjs','app/check-release.mjs','app/updater.m
   if rel.endswith('updater.mjs') and not (1<=i<=43):continue
   if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
   print('CHECK-CODE',rel,i,line[:240])
+
+p=root/'bootstrap/fixed-core.mjs'
+print('SLOT-DETAIL bootstrap/fixed-core.mjs')
+for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
+ if i>150:break
+ if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
+ print('SLOT-CODE',i,line[:240])
