@@ -24,6 +24,7 @@ on:
       - '.github/qa-confirm-lock-integration.py'
       - '.github/qa-rc11-version.py'
       - '.github/qa-rc11-package-smoke.mjs'
+      - '.github/qa-release-signing-audit.py'
       - '.github/qa-recovery-lock.test.mjs'
       - '.github/qa-launcher-session-identity.py'
       - '.github/qa-launcher-process-identity.mjs'
@@ -92,6 +93,7 @@ jobs:
           python3 .github/qa-process-identity-audit.py source
           python3 .github/qa-recovery-boundary-audit.py source
           python3 .github/qa-recovery-callers-audit.py source
+          python3 .github/qa-release-signing-audit.py source
           cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
           cp .github/qa-exclusive-update-lock.test.mjs source/tests/qa-exclusive-update-lock.test.mjs
           cp .github/qa-launcher-process-identity.test.mjs source/tests/qa-launcher-process-identity.test.mjs
