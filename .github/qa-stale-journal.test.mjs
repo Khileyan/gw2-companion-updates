@@ -1,50 +1,55 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-
-// Historical incident fixture. This test suite does not modify a real installation.
-// Do not mistake a green static guard test for a verified automatic repair.
-const update = fs.readFileSync(new URL('../bootstrap/fixed-update.mjs',import.meta.url),'utf8');
-const gui = fs.readFileSync(new URL('../launcher/GW2-Companion.ps1',import.meta.url),'utf8');
-
-function fixture(overrides={}) {
-  const root=fs.mkdtempSync(path.join(os.tmpdir(),'gw2-qa-journal-'));
-  const updater=path.join(root,'updater');
-  const backup=path.join(updater,'fixed-rollback-synthetic');
-  fs.mkdirSync(backup,{recursive:true});
-  fs.mkdirSync(path.join(root,'app'),{recursive:true});
-  fs.writeFileSync(path.join(root,'app','package.json'), JSON.stringify({version:'5.9.0-rc.9'}));
-  const journal={schema:1,layout:'fixed-v1',from:'5.9.0-rc.8.2',to:'5.9.0-rc.9',backup,at:1794057341979,phase:'starting',...overrides};
-  fs.writeFileSync(path.join(updater,'fixed-transaction.json'), JSON.stringify(journal));
-  fs.writeFileSync(path.join(updater,'status.json'),JSON.stringify({state:'failed',phase:'not-activated',error_code:'update_aborted'}));
-  return {root,updater,backup,journal};
+import os from 'node:os';
+import {inspectStaleJournal,archiveStaleJournal} from '../bootstrap/stale-journal.mjs';
+const NOW=1794057500000;
+function setup(t,opts={}){
+  const root=fs.mkdtempSync(path.join(os.tmpdir(),'gw2-journal-'));
+  t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
+  const u=path.join(root,'updater');fs.mkdirSync(u);
+  const backup=path.join(u,'fixed-rollback-fixture');
+  for(const dir of ['app','launcher','assets','projects','bootstrap'])fs.mkdirSync(path.join(backup,dir),{recursive:true});
+  fs.mkdirSync(path.join(root,'app'));
+  const save=(p,x)=>fs.writeFileSync(p,JSON.stringify(x));
+  save(path.join(root,'app','package.json'),{version:opts.installed??'5.9.0-rc.9'});
+  save(path.join(root,'app-version.json'),{version:opts.marker??'5.9.0-rc.9'});
+  save(path.join(backup,'app','package.json'),{version:'5.9.0-rc.8.2'});
+  save(path.join(u,'fixed-transaction.json'),{schema:1,layout:'fixed-v1',from:'5.9.0-rc.8.2',to:'5.9.0-rc.9',backup,at:opts.at??NOW-150000,phase:opts.phase??'starting'});
+  return {root,u,backup,save};
 }
-
-test('real incident fixture: installed RC9, unfinished RC8.2 to RC9 journal, no update lock',t=>{
-  const f=fixture();
-  t.after(()=>fs.rmSync(f.root,{recursive:true,force:true}));
-  assert.equal(JSON.parse(fs.readFileSync(path.join(f.root,'app','package.json'))).version,f.journal.to);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(f.updater,'fixed-transaction.json'))).phase,'starting');
-  assert.ok(fs.existsSync(f.backup));
-  assert.equal(fs.existsSync(path.join(f.updater,'update.lock')),false);
-  assert.equal(fs.existsSync(path.join(f.updater,'transaction.json')),false);
-  assert.equal(JSON.parse(fs.readFileSync(path.join(f.updater,'status.json'))).error_code,'update_aborted');
+test('read-only inspection identifies old RC8.2 to RC9 journal',t=>{
+  const f=setup(t);const check=inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false});
+  assert.equal(check.safe_to_archive,true);assert.equal(check.to,'5.9.0-rc.9');
+  assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
 });
-
-test('existing installer retains incomplete journal rather than silently deleting it',()=>{
-  assert.match(update,/if\(fs\.existsSync\(p\.journal\)\)throw Error/);
-  assert.doesNotMatch(update,/fs\.rmSync\(p\.journal,\{force:true\}\)/);
+test('explicit consent required; retain backup and status after archival',t=>{
+  const f=setup(t);f.save(path.join(f.u,'status.json'),{state:'failed'});
+  assert.throws(()=>archiveStaleJournal(f.root,{now:NOW,isAlive:()=>false}),/Explicit local approval/);
+  const out=archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false});
+  assert.equal(out.archived,true);assert.ok(fs.existsSync(f.backup));
+  assert.ok(fs.existsSync(path.join(f.u,out.archive_name)));
+  assert.ok(!fs.existsSync(path.join(f.u,'fixed-transaction.json')));
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(f.u,'status.json'))),{state:'failed'});
 });
-
-test('status display and actual backup safety are distinct from verified signed manifests',()=>{
-  assert.match(gui,/fixed-transaction\.json/);
-  assert.match(gui,/Letztes Update fehlgeschlagen/);
-  assert.match(gui,/check-status\.json/);
+for(const [name,mutate,expected] of [
+  ['active update lock',({u})=>fs.writeFileSync(path.join(u,'update.lock'),''),'update_in_progress_or_locked'],
+  ['other transaction',({u})=>fs.writeFileSync(path.join(u,'transaction.json'),''),'update_in_progress_or_locked'],
+  ['pending shutdown',({u})=>fs.writeFileSync(path.join(u,'shutdown.request'),''),'update_in_progress_or_locked'],
+  ['missing backup component',({backup})=>fs.rmSync(path.join(backup,'launcher'),{recursive:true}),'incomplete_backup'],
+  ['version mismatch',({root,save})=>save(path.join(root,'app','package.json'),{version:'5.9.0-rc.8.2'}),'version_mismatch'],
+  ['target marker mismatch',({root,save})=>save(path.join(root,'app-version.json'),{version:'5.9.0-rc.10'}),'version_mismatch'],
+  ['too recent',({u,save})=>{const p=path.join(u,'fixed-transaction.json');const x=JSON.parse(fs.readFileSync(p));x.at=NOW-1000;save(p,x);},'transaction_too_recent'],
+  ['unknown phase',({u,save})=>{const p=path.join(u,'fixed-transaction.json');const x=JSON.parse(fs.readFileSync(p));x.phase='moving';save(p,x);},'unknown_transaction'],
+  ['invalid backup path',({u,save})=>{const p=path.join(u,'fixed-transaction.json');const x=JSON.parse(fs.readFileSync(p));x.backup='/not/under/updater';save(p,x);},'unknown_transaction']
+])test('refuses '+name,t=>{
+  const f=setup(t);mutate(f);
+  assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,expected);
+  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused/);
+  assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
 });
-
-test.todo('LIVE REGRESSION: previous-version installed journal at starting is classified as stale only after full process, backup, and version safety checks');
-test.todo('LIVE REGRESSION: previous incomplete journal is reconciled safely; missing backup, mismatched target, active updater and update.lock remain blocked');
-test.todo('LIVE REGRESSION: status failed from a historical update is distinguished from failed current installation in the GUI');
-test.todo('LIVE REGRESSION: interrupted updater retry preserves rollback backup and produces reason-coded diagnostics');
+test('running launcher session vetoes archival',t=>{
+  const f=setup(t);f.save(path.join(f.u,'launcher-session.json'),{pid:1234});
+  assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>true}).reason,'launcher_still_running');
+});
