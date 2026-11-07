@@ -34,7 +34,7 @@ test('symlink updater directory refuses lock',t=>{
 test('second Node process observes held exclusive lock',t=>{
  const r=create(t),url=new URL('../bootstrap/exclusive-update-lock.mjs',import.meta.url).href;
  withExclusiveUpdateLock(r,()=>{
-  const js='import {withExclusiveUpdateLock} from '+JSON.stringify(url)+';try{withExclusiveUpdateLock(process.argv[1],()=>{});process.exitCode=99}catch(e){if(e.code!=='UPDATE_LOCK_BUSY')process.exitCode=98;}';
+  const js=`import {withExclusiveUpdateLock} from ${JSON.stringify(url)};try{withExclusiveUpdateLock(process.argv[1],()=>{});process.exitCode=99}catch(e){if(e.code!=='UPDATE_LOCK_BUSY')process.exitCode=98;}`;
   const p=spawnSync(process.execPath,['--input-type=module','-e',js,r],{encoding:'utf8'});
   assert.equal(p.status,0,p.stderr);
  });
