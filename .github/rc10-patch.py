@@ -117,7 +117,7 @@ write(p,s)
 for p in (root/'tests').glob('*.test.mjs'):
  s=read(p)
  s=s.replace('5.9.0-rc.9.1','__FUTURE_RC__')
- s=s.replace(base,target).replace('__FUTURE_RC__','5.9.0-rc.10.1')
+ s=s.replace(base,target).replace(r'5\.9\.0-rc\.9',r'5\.9\.0-rc\.10').replace('__FUTURE_RC__','5.9.0-rc.10.1')
  write(p,s)
 publisher=root/'app/publish-release.mjs'
 s=read(publisher)
