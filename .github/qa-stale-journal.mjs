@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import {withExclusiveUpdateLock} from './exclusive-update-lock.mjs';
 
 const V=/^\d+\.\d+\.\d+(?:-[a-z0-9.]+)?$/i;
 const PARTS=['app','launcher','assets','projects','bootstrap'];
@@ -76,11 +77,15 @@ export function inspectStaleJournal(root,{now=Date.now(),minAgeMs=120000,isAlive
 }
 export function archiveStaleJournal(root,{approved=false,now=Date.now(),minAgeMs=120000,isAlive=pidAlive}={}){
   if(approved!==true)throw Error('Explicit local approval required');
-  const status=inspectStaleJournal(root,{now,minAgeMs,isAlive});
-  if(!status.safe_to_archive)throw Error('Archive refused: '+status.reason);
-  const updater=path.join(path.resolve(root),'updater');
-  const target='fixed-transaction.archived-'+new Date(now).toISOString().replace(/[^0-9]/g,'')+'-'+crypto.randomBytes(4).toString('hex')+'.json';
-  // Rename, never unlink; the backup directory is deliberately retained.
-  fs.renameSync(path.join(updater,'fixed-transaction.json'),path.join(updater,target));
-  return {archived:true,archive_name:target,backup_preserved:true,installed_version:status.installed_version};
+  return withExclusiveUpdateLock(root,({assertOwned})=>{
+    // Lock is shared with the production updater. Never archive without owning it.
+    // Inspection remains fail-closed until validated process identity exists.
+    const status=inspectStaleJournal(root,{now,minAgeMs,isAlive});
+    if(!status.safe_to_archive)throw Error('Archive refused: '+status.reason);
+    assertOwned();
+    const updater=path.join(path.resolve(root),'updater');
+    const target='fixed-transaction.archived-'+new Date(now).toISOString().replace(/[^0-9]/g,'')+'-'+crypto.randomBytes(4).toString('hex')+'.json';
+    fs.renameSync(path.join(updater,'fixed-transaction.json'),path.join(updater,target));
+    return {archived:true,archive_name:target,backup_preserved:true,installed_version:status.installed_version};
+  });
 }
