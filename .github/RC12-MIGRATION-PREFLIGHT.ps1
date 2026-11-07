@@ -96,3 +96,4 @@ if($failed -gt 0){
  exit 2
 }
 Write-Host 'PREFLIGHT PASS: No local installation was changed. This does NOT authorize installation or publication.' -ForegroundColor Green
+$global:LASTEXITCODE=0
