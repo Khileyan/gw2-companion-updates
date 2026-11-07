@@ -196,7 +196,7 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors) | Out-Null
           if($errors.Count){$errors | ForEach-Object {Write-Host $_.Message};throw 'RC11 publisher handoff syntax error'}
           $src=Get-Content -LiteralPath $file -Raw
-          foreach($required in @('PUBLISH RC11','Get-FileHash','-Publish','SigningKeyFile')){
+          foreach($required in @('PUBLISH RC11','Get-FileHash','-Publish','SigningKeyFile','publisherZip','Copy-Item','copyHash')){
             if(-not $src.Contains($required)){throw "Missing RC11 local publication safety gate: $required"}
           }
       - name: PowerShell 5.1 syntax and manual update UI regression
