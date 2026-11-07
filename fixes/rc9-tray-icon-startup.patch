@@ -1,0 +1,40 @@
+--- a/launcher/GW2-Companion.ps1
++++ b/launcher/GW2-Companion.ps1
+@@ -183,22 +183,4 @@
+-function Make-StatusIcon([Drawing.Color]$color){
+-    # Show the user's GW2 logo in the tray, with a small connection-status marker.
+-    $bmp=New-Object Drawing.Bitmap(32,32)
+-    $g=[Drawing.Graphics]::FromImage($bmp);$g.SmoothingMode=[Drawing.Drawing2D.SmoothingMode]::AntiAlias
+-    $g.InterpolationMode=[Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+-    $g.Clear([Drawing.Color]::Transparent)
+-    $border=New-Object Drawing.SolidBrush ([Drawing.Color]::FromArgb(42,24,21))
+-    $fill=New-Object Drawing.SolidBrush $color
+-    if($null -ne $script:BrandImage){
+-        $g.DrawImage($script:BrandImage,0,0,32,32)
+-        $g.FillEllipse($border,19,19,13,13)
+-        $g.FillEllipse($fill,21,21,9,9)
+-    }else{
+-        # Fallback for a manually copied installation missing the image assets.
+-        $g.FillEllipse($border,2,2,28,28)
+-        $g.FillEllipse($fill,6,6,20,20)
+-    }
+-    $h=$bmp.GetHicon();$icon=([Drawing.Icon]::FromHandle($h)).Clone()
+-    [void][CompanionNative]::DestroyIcon($h)
+-    $border.Dispose();$fill.Dispose();$g.Dispose();$bmp.Dispose()
+-    return $icon
+-}
++# Keep the initial brand icon; never replace it during status transitions.
+@@ -214,5 +196,10 @@
+     if($null -ne $script:TrayIcon){
+-        $icon=Make-StatusIcon $color;$old=$script:TrayIcon.Icon
+-        $script:TrayIcon.Icon=$icon
+-        if($null -ne $old){$old.Dispose()}
+-        $script:TrayIcon.Text='GW2 Companion: '+$phase
++        try {
++            $tooltip='GW2 Companion: '+[string]$phase
++            if($tooltip.Length -gt 63){$tooltip=$tooltip.Substring(0,63)}
++            $script:TrayIcon.Text=$tooltip
++        } catch {
++            try {Log-Event 'HEALTH' 'Tray-Statustext konnte nicht aktualisiert werden.'} catch {}
++        }
+     }
