@@ -7,7 +7,7 @@
 - Source/QA PR #8 is still draft. RC10 stays immutable.
 - CI produces `rc11-local-signing-handoff-UNSIGNED` containing `GW2-Account-Companion-v5.9.0-rc.11-All-in-One-Preview.zip` and `RC11-SHA256SUMS.txt`.
 - The local PowerShell script `RC11-LOCAL-PUBLISH.ps1` verifies this SHA256, requires exact RC11 filename, installed Node.js + GitHub CLI, authenticated access to `Khileyan/gw2-companion-updates`, and refusal to overwrite an existing RC11 tag.
-- Default script execution is **read-only preflight**. Actual release requires `-Publish` AND an additional exact typed confirmation.
+- Default script execution is **non-publishing preflight**: it unpacks and validates the ZIP in a temporary workspace, verifies the packaged version, reconstructs excluded `app-version.json` temporarily and checks that the existing pinned public key and `update-source.json` configuration can be found. Actual release requires `-Publish` AND an additional exact typed confirmation.
 - The existing package publisher performs Ed25519 signing locally with the already-pinned public-key fingerprint, validates the signed v2 manifest and asset hash, creates a GitHub prerelease, and only **then** updates `main/preview.json` once the release is public.
 - It also archives the previous signed preview manifest for rollback without overwriting existing archived versions. Any failure requires manual inspection before retrying: the GitHub release and the feed can become partially updated.
 
@@ -30,3 +30,10 @@ Do NOT publish if the signing key is lost or its fingerprint mismatches, GitHub 
 ## Explicit limitation
 
 The current CI package is not itself an authorized signed release. The ChatGPT GitHub connector in this environment cannot access the owner's local signing key or invoke GitHub's release-creation/asset-upload operation. Sign/publish is an owner-local step, not a server-side CI shortcut.
+
+## RC11 publication preflight failures resolved
+
+- The original owner-only publisher accepts the concise basename `GW2-Account-Companion-v5.9.0-rc.11.zip`, not the CI handoff filename ending `-All-in-One-Preview.zip`. The wrapper uses a hash-verified temporary copy, never mutating the original ZIP.
+- The reproducible ZIP builder deliberately excludes root `app-version.json`, but the owner-only publisher reads it before signing. The wrapper restores this metadata only in the extracted temporary source directory after checking `app/package.json` version. This temporary metadata is **not** part of the released ZIP or its SHA-256.
+- The original publisher also requires trusted `%LOCALAPPDATA%\\GW2-Account-Companion\\config\\publisher-public.pem` and `update-source.json`. The wrapper fails closed if missing; it does not manufacture trust metadata from the private signing key.
+- **Always run fresh no-`-Publish` preflight after downloading any repaired script.** The preflight now checks staging errors *before* asking for a `PUBLISH RC11` confirmation.
