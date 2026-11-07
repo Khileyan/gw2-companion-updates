@@ -27,6 +27,7 @@ on:
       - '.github/qa-rc12-progress.test.mjs'
       - '.github/RC12-LOCAL-PUBLISH.ps1'
       - '.github/RC12-UI-SMOKE.ps1'
+      - '.github/RC12-MIGRATION-PREFLIGHT.ps1'
       - '.github/qa-rc11-package-smoke.mjs'
       - '.github/qa-release-signing-audit.py'
       - '.github/RC11-LOCAL-PUBLISH.ps1'
@@ -161,6 +162,7 @@ jobs:
           (cd dist && sha256sum GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip > RC12-SHA256SUMS.txt)
           cp .github/RC12-LOCAL-PUBLISH.ps1 dist/RC12-LOCAL-PUBLISH.ps1
           cp .github/RC12-UI-SMOKE.ps1 dist/RC12-UI-SMOKE.ps1
+          cp .github/RC12-MIGRATION-PREFLIGHT.ps1 dist/RC12-MIGRATION-PREFLIGHT.ps1
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import {inspectReleaseZip} from './rc12-source/app/install-verified.mjs';
@@ -205,6 +207,7 @@ jobs:
             dist/RC12-SHA256SUMS.txt
             dist/RC12-LOCAL-PUBLISH.ps1
             dist/RC12-UI-SMOKE.ps1
+            dist/RC12-MIGRATION-PREFLIGHT.ps1
           if-no-files-found: error
 
 
@@ -289,6 +292,31 @@ jobs:
           if($src.Contains('fixed-update.mjs') -or $src.Contains('update.lock') -or $src.Contains('shutdown.request')){
             throw 'RC12 smoke test must remain isolated from actual updater'
           }
+      - name: RC12 migration preflight Windows PowerShell 5.1 read-only PASS and STOP tests
+        shell: powershell
+        run: |
+          $preflight=(Resolve-Path .github/RC12-MIGRATION-PREFLIGHT.ps1).Path
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile($preflight,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|ForEach-Object {Write-Host $_.Message};throw 'Migration preflight PowerShell syntax invalid'}
+          $fixture=Join-Path $env:RUNNER_TEMP 'rc12-readonly-migration-fixture'
+          foreach($relative in @('app/node_modules','shared/bin','config','bootstrap','updater')){
+            New-Item -ItemType Directory -Path (Join-Path $fixture $relative) -Force|Out-Null
+          }
+          $pkg=(Get-Content source/app/package.json -Raw|ConvertFrom-Json)
+          $pkg.version='5.9.0-rc.10'
+          [IO.File]::WriteAllText((Join-Path $fixture 'app/package.json'),($pkg|ConvertTo-Json -Depth 30),[Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText((Join-Path $fixture 'app-version.json'),'{"version":"5.9.0-rc.10"}')
+          [IO.File]::WriteAllText((Join-Path $fixture 'config/update-source.json'),'{"schema":1,"channel":"preview","manifest_url":"https://raw.githubusercontent.com/Khileyan/gw2-companion-updates/main/preview.json"}')
+          [IO.File]::WriteAllText((Join-Path $fixture 'config/publisher-public.pem'),'test-public-key-presence-only')
+          foreach($relative in @('bootstrap/fixed-update.mjs','bootstrap/Start-Managed.ps1','shared/bin/tunnel-client.exe')){
+            [IO.File]::WriteAllText((Join-Path $fixture $relative),'test-file-exists')
+          }
+          & $preflight -PackageZip (Resolve-Path dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path dist/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
+          if($LASTEXITCODE -ne 0){throw 'Valid RC10 simulation unexpectedly rejected by read-only migration gate'}
+          [IO.File]::WriteAllText((Join-Path $fixture 'updater/update.lock'),'simulated active transaction')
+          & $preflight -PackageZip (Resolve-Path dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path dist/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
+          if($LASTEXITCODE -ne 2){throw 'Active update lock must cause a controlled STOP'}
       - name: Windows PowerShell 5.1 RC12 independent progress host regression
         shell: powershell
         run: |
