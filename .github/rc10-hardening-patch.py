@@ -60,40 +60,5 @@ once("        # No account data, no keys.\n        [Windows.Forms.MessageBox]::S
         }
         # No account data, no keys.
         [Windows.Forms.MessageBox]::Show($m,'Diagnose','OK','Information')""")
-# A stale 'no update' check is not proof that the installed release is current.
-once("                    if($currentCheck.verified -eq $true -and $currentCheck.update_available -eq $false){$isCurrentRelease=$true}",
-"""                    $statusFresh=$false
-                    try{
-                        $checkedAt=[datetime]::Parse([string]$currentCheck.checked_at).ToUniversalTime()
-                        $statusFresh=$checkedAt -le [datetime]::UtcNow.AddMinutes(2) -and $checkedAt -ge [datetime]::UtcNow.AddHours(-1)
-                    }catch{}
-                    if($statusFresh -and $currentCheck.verified -eq $true -and $currentCheck.update_available -eq $false){$isCurrentRelease=$true}""")
-once("                $lblHelp.Text='Du verwendest die aktuelle Version. Neue Updates werden automatisch geprueft.'",
-"""                if($isCurrentRelease){$lblHelp.Text='Aktuelle Version laut letzter signierter Pruefung.'}
-                else{$lblHelp.Text='Keine aktuelle Versionspruefung. Bitte Nach Updates suchen klicken.'}""")
-# Show bounded update diagnostics even when Node or the tunnel is disconnected.
-once("    if(-not (Running $script:NodeProc) -or -not(Local-Ready)){\n        [Windows.Forms.MessageBox]::Show('Lokaler Server ist nicht bereit. Bitte zuerst verbinden.','Diagnose')|Out-Null;return\n    }",
-"""    if(-not (Running $script:NodeProc) -or -not(Local-Ready)){
-        $description='Lokaler MCP-Server nicht bereit.'
-        if($script:ManagedRoot){
-            $statusFile=Join-Path $script:ManagedRoot 'updater\\status.json'
-            $journal=Join-Path $script:ManagedRoot 'updater\\fixed-transaction.json'
-            $active=Test-Path -LiteralPath $journal
-            $state='unknown'
-            if(Test-Path -LiteralPath $statusFile){
-                try{
-                    $record=Get-Content -LiteralPath $statusFile -Raw -Encoding UTF8|ConvertFrom-Json
-                    $value=[string]$record.state
-                    if($value -match '^[a-z_]{1,40}
-print('RC10 launcher hardening applied')
-){$state=$value}
-                }catch{}
-            }
-            if($state -eq 'recovery_required' -and -not $active){$state='historical_recovery_status'}
-            $description+=' Update: '+$script:CompanionVersion+'; Status: '+$state+'; aktive Transaktion: '+$active
-        }
-        [Windows.Forms.MessageBox]::Show($description,'Systemdiagnose','OK','Information')|Out-Null
-        return
-    }""")
 p.write_text(s,encoding='utf-8')
 print('RC10 launcher hardening applied')
