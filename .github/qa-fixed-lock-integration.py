@@ -22,16 +22,16 @@ def guarded(old,new):
  global s
  if s.count(old)!=1:raise SystemExit('Unsafe/unexpected update mutation boundary: '+repr(old))
  s=s.replace(old,new)
-guarded("    activateFixed(root,candidate,from,to);activated=true;",
-        "    unlock.assertOwned();activateFixed(root,candidate,from,to);activated=true;")
-guarded("    const done=finishFixed(root);activated=false;",
-        "    unlock.assertOwned();const done=finishFixed(root);activated=false;")
+guarded("activateFixed(root,candidate,from,to);activated=true;",
+        "unlock.assertOwned();activateFixed(root,candidate,from,to);activated=true;")
+guarded("const done=finishFixed(root);activated=false;",
+        "unlock.assertOwned();const done=finishFixed(root);activated=false;")
 guarded("try{const restored=await retryRestoreFixed(root);activated=false;",
         "try{const restored=await retryRestoreFixed(root,{restore:(r)=>{unlock.assertOwned();return restoreFixed(r);}});activated=false;")
-guarded("    activateFixed(root,candidate,current,m.version);",
-        "    unlock.assertOwned();activateFixed(root,candidate,current,m.version);")
-guarded("    if(fs.existsSync(p.journal))try{restoreFixed(root);}catch{}",
-        "    if(fs.existsSync(p.journal))try{unlock.assertOwned();restoreFixed(root);}catch{}")
+guarded("activateFixed(root,candidate,current,m.version);",
+        "unlock.assertOwned();activateFixed(root,candidate,current,m.version);")
+guarded("if(fs.existsSync(p.journal))try{restoreFixed(root);}catch{}",
+        "if(fs.existsSync(p.journal))try{unlock.assertOwned();restoreFixed(root);}catch{}")
 # Rollback and other helper functions remain byte-for-byte unchanged.
 if 'retryRestoreFixed' not in s:raise SystemExit('Recovery helper lost: refusing patch')
 p.write_text(s,encoding='utf-8')
