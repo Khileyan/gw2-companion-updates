@@ -83,7 +83,8 @@ test('fixed updater cannot remove another process replacement lock',t=>{
 });
 test('fixed updater uses token owner lock, not blind rmSync',()=>{
  const src=fs.readFileSync(new URL('../bootstrap/fixed-update.mjs',import.meta.url),'utf8');
- assert.match(src,/acquireExclusiveUpdateLock\(root,\{kind:'fixed-update'\}\)\.release/);
+ assert.match(src,/const owner=acquireExclusiveUpdateLock\(root,\{kind:'fixed-update'\}\)/);
+ assert.match(src,/unlock\.assertOwned=\(\)=>owner\.assertOwned\(\)/);
  assert.doesNotMatch(src,/function lock\(root\)\{const f=fixedPaths\(root\)\.lock/);
 });
 
