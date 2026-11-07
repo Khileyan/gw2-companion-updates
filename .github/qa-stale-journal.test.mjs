@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {inspectStaleJournal,archiveStaleJournal} from '../bootstrap/stale-journal.mjs';
 const NOW=1794057500000;
 function setup(t,opts={}){
@@ -81,8 +82,8 @@ test('end-to-end updater CLI inspects and archives only with explicit local cons
   const journal=JSON.parse(fs.readFileSync(txPath,'utf8'));
   journal.backup=path.join(root,'updater','fixed-rollback-fixture');
   fs.writeFileSync(txPath,JSON.stringify(journal));
-  const cli=new URL('../bootstrap/fixed-update.mjs',import.meta.url);
-  const run=(...args)=>spawnSync(process.execPath,[cli.pathname,...args],{encoding:'utf8',env:{...process.env,LOCALAPPDATA:base}});
+  const cli=fileURLToPath(new URL('../bootstrap/fixed-update.mjs',import.meta.url));
+  const run=(...args)=>spawnSync(process.execPath,[cli,...args],{encoding:'utf8',env:{...process.env,LOCALAPPDATA:base}});
   const check=run('inspect-stale');
   assert.equal(check.status,0,check.stderr);
   assert.equal(JSON.parse(check.stdout).safe_to_archive,true);
