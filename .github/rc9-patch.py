@@ -62,11 +62,12 @@ it=read(icon_test)
 lines=it.splitlines(keepends=True)
 hits=[i for i,line in enumerate(lines) if 'DrawImage' in line and 'assert.match' in line]
 if len(hits)!=1:raise SystemExit('Unknown icon assets regression layout')
-import re
-m=re.search(r'assert\\.match\\(\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*,',lines[hits[0]])
-if not m:raise SystemExit('Unknown icon test assertion operand')
-var=m.group(1)
-lines[hits[0]]=('  assert.match('+var+r', /\\$tray\\.Icon=\\$script:BrandIcon/);'+'\\n')
+line=lines[hits[0]]
+prefix=line.split('assert.match(',1)
+if len(prefix)!=2:raise SystemExit('Unexpected icon assertion form')
+var=prefix[1].split(',',1)[0].strip()
+if not var.isidentifier():raise SystemExit('Unexpected icon assertion variable')
+lines[hits[0]]=('  assert.match('+var+r', /\\$tray\\.Icon=\\$script:BrandIcon/);'+'\n')
 it=''.join(lines)
 if 'DrawImage' in it and 'assert.match' in it:
  raise SystemExit('Obsolete icon assertion still present')
