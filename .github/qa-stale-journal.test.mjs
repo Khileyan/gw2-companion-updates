@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import {spawnSync} from 'node:child_process';
 import {inspectStaleJournal,archiveStaleJournal} from '../bootstrap/stale-journal.mjs';
 const NOW=1794057500000;
 function setup(t,opts={}){
@@ -67,4 +68,32 @@ test('inspection and archival are separate CLI routes; archive requires local ap
   assert.match(fixed,/action==='inspect-stale'/);
   assert.match(fixed,/action==='archive-stale'/);
   assert.match(fixed,/if\(!process\.argv\.includes\('--approve'\)\)throw Error/);
+});
+
+test('end-to-end updater CLI inspects and archives only with explicit local consent',t=>{
+  const base=fs.mkdtempSync(path.join(os.tmpdir(),'gw2-cli-'));
+  t.after(()=>fs.rmSync(base,{recursive:true,force:true}));
+  const f=setup(t);
+  const root=path.join(base,'GW2-Account-Companion');
+  fs.cpSync(f.root,root,{recursive:true});
+  // Rebase the archived fixture backup path into the CLI-managed root.
+  const txPath=path.join(root,'updater','fixed-transaction.json');
+  const journal=JSON.parse(fs.readFileSync(txPath,'utf8'));
+  journal.backup=path.join(root,'updater','fixed-rollback-fixture');
+  fs.writeFileSync(txPath,JSON.stringify(journal));
+  const cli=new URL('../bootstrap/fixed-update.mjs',import.meta.url);
+  const run=(...args)=>spawnSync(process.execPath,[cli.pathname,...args],{encoding:'utf8',env:{...process.env,LOCALAPPDATA:base}});
+  const check=run('inspect-stale');
+  assert.equal(check.status,0,check.stderr);
+  assert.equal(JSON.parse(check.stdout).safe_to_archive,true);
+  const denied=run('archive-stale');
+  assert.notEqual(denied.status,0);
+  assert.ok(fs.existsSync(txPath));
+  const allowed=run('archive-stale','--approve');
+  assert.equal(allowed.status,0,allowed.stderr);
+  const outcome=JSON.parse(allowed.stdout);
+  assert.equal(outcome.archived,true);
+  assert.ok(fs.existsSync(path.join(root,'updater',outcome.archive_name)));
+  assert.ok(fs.existsSync(journal.backup));
+  assert.equal(JSON.parse(run('inspect-stale').stdout).reason,'no_journal');
 });
