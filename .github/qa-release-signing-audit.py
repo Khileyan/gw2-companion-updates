@@ -85,3 +85,10 @@ for rel, interval in [('bootstrap/fixed-update.mjs',(1,140)),('bootstrap/Update-
   if not(interval[0]<=i<=interval[1]):continue
   if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
   print('FLOW-CODE',rel,i,line[:250])
+
+for rel, ranges in [('bootstrap/Update-Progress.ps1',[(1,20),(169,190)]),('bootstrap/fixed-update.mjs',[(180,198)]),('launcher/GW2-Companion.ps1',[(526,565)])]:
+ p=root/rel
+ print('PATCH-INPUT',rel)
+ for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
+  if not any(a<=i<=b for a,b in ranges):continue
+  print('PATCH-LINE',rel,i,line[:420])
