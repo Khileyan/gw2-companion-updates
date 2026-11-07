@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import {spawnSync} from 'node:child_process';
-import {withExclusiveUpdateLock,UpdateLockBusyError} from '../bootstrap/exclusive-update-lock.mjs';
+import {withExclusiveUpdateLock,acquireExclusiveUpdateLock,UpdateLockBusyError} from '../bootstrap/exclusive-update-lock.mjs';
 function create(t){const r=fs.mkdtempSync(path.join(os.tmpdir(),'gw2-lock-'));t.after(()=>fs.rmSync(r,{recursive:true,force:true}));fs.mkdirSync(path.join(r,'updater'));return r;}
 const lock=r=>path.join(r,'updater','update.lock');
 test('exclusive lock blocks nested racing acquisition and cleans owned lock',t=>{
@@ -62,4 +62,27 @@ test('existing fixed updater wx lock and reviewer lock are mutually exclusive',t
  withExclusiveUpdateLock(r,()=>{
    assert.throws(()=>fs.writeFileSync(lock(r),JSON.stringify({pid:7777}),{flag:'wx'}),e=>e.code==='EEXIST');
  });
+});
+
+test('async fixed updater holds exclusive lock across awaited work',async t=>{
+ const r=create(t);
+ const owner=acquireExclusiveUpdateLock(r,{kind:'fixed-update'});
+ try{
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.throws(()=>acquireExclusiveUpdateLock(r,{kind:'stale-journal-review'}),UpdateLockBusyError);
+  owner.assertOwned();
+ }finally{owner.release();}
+ assert.equal(fs.existsSync(lock(r)),false);
+});
+test('fixed updater cannot remove another process replacement lock',t=>{
+ const r=create(t),owner=acquireExclusiveUpdateLock(r,{kind:'fixed-update'});
+ const p=lock(r);
+ fs.writeFileSync(p,JSON.stringify({schema:1,pid:555,token:'replacement',kind:'fixed-update'}));
+ assert.throws(()=>owner.release(),/ownership lost/);
+ assert.equal(fs.existsSync(p),true);
+});
+test('fixed updater uses token owner lock, not blind rmSync',()=>{
+ const src=fs.readFileSync(new URL('../bootstrap/fixed-update.mjs',import.meta.url),'utf8');
+ assert.match(src,/acquireExclusiveUpdateLock\(root,\{kind:'fixed-update'\}\)\.release/);
+ assert.doesNotMatch(src,/function lock\(root\)\{const f=fixedPaths\(root\)\.lock/);
 });
