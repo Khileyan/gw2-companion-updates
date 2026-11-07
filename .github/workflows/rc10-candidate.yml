@@ -21,6 +21,7 @@ on:
       - '.github/qa-recovery-boundary-audit.py'
       - '.github/qa-recovery-callers-audit.py'
       - '.github/qa-recovery-lock-integration.py'
+      - '.github/qa-confirm-lock-integration.py'
       - '.github/qa-recovery-lock.test.mjs'
       - '.github/qa-launcher-session-identity.py'
       - '.github/qa-launcher-process-identity.mjs'
@@ -82,6 +83,7 @@ jobs:
           python3 .github/qa-stale-journal-integration.py source
           python3 .github/qa-fixed-lock-integration.py source
           python3 .github/qa-recovery-lock-integration.py source
+          python3 .github/qa-confirm-lock-integration.py source
           python3 .github/qa-stale-journal-diagnostics.py source
           python3 .github/qa-launcher-session-identity.py source
           cp .github/qa-launcher-process-identity.mjs source/bootstrap/launcher-process-identity.mjs
@@ -100,6 +102,7 @@ jobs:
           unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/stale-journal.mjs'
           unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/exclusive-update-lock.mjs'
           unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/launcher-process-identity.mjs'
+          unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/fixed-confirm.mjs'
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import {inspectReleaseZip} from './source/app/install-verified.mjs';
