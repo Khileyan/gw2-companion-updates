@@ -53,3 +53,13 @@ test('asynchronous callback is rejected instead of silently dropping exclusive o
  assert.throws(()=>withExclusiveUpdateLock(r,()=>Promise.resolve()),/Async callback is not supported/);
  assert.equal(fs.existsSync(lock(r)),false);
 });
+
+test('existing fixed updater wx lock and reviewer lock are mutually exclusive',t=>{
+ const r=create(t);
+ fs.writeFileSync(lock(r),JSON.stringify({pid:5555,created:1}),{flag:'wx'});
+ assert.throws(()=>withExclusiveUpdateLock(r,()=>{}),UpdateLockBusyError);
+ fs.rmSync(lock(r));
+ withExclusiveUpdateLock(r,()=>{
+   assert.throws(()=>fs.writeFileSync(lock(r),JSON.stringify({pid:7777}),{flag:'wx'}),e=>e.code==='EEXIST');
+ });
+});
