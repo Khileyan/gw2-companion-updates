@@ -18,6 +18,7 @@ on:
       - '.github/qa-exclusive-update-lock.test.mjs'
       - '.github/qa-fixed-lock-integration.py'
       - '.github/qa-process-identity-audit.py'
+      - '.github/qa-recovery-boundary-audit.py'
       - '.github/qa-launcher-session-identity.py'
       - '.github/qa-launcher-process-identity.mjs'
       - '.github/qa-launcher-process-identity.test.mjs'
@@ -81,6 +82,7 @@ jobs:
           python3 .github/qa-launcher-session-identity.py source
           cp .github/qa-launcher-process-identity.mjs source/bootstrap/launcher-process-identity.mjs
           python3 .github/qa-process-identity-audit.py source
+          python3 .github/qa-recovery-boundary-audit.py source
           cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
           cp .github/qa-exclusive-update-lock.test.mjs source/tests/qa-exclusive-update-lock.test.mjs
           cp .github/qa-launcher-process-identity.test.mjs source/tests/qa-launcher-process-identity.test.mjs
