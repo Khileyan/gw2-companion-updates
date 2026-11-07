@@ -6,6 +6,9 @@ on:
     paths:
       - '.github/rc10-patch.py'
       - '.github/rc10-stability.test.mjs'
+      - '.github/rc10-hardening.test.mjs'
+      - '.github/rc10-hardening-patch.py'
+      - '.github/rc10-recovery-patch.py'
       - '.github/workflows/rc10-candidate.yml'
   workflow_dispatch:
 
