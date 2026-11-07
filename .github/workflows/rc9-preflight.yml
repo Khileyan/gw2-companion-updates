@@ -15,7 +15,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify-base:
+    uses: ./.github/workflows/test-rollback-safety.yml
+    permissions:
+      contents: read
+
   prepare:
+    needs: verify-base
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -23,15 +29,20 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
-      - name: Retrieve SHA-256 pinned published RC8.3
+      - name: Fetch precisely reviewed RC8 source from verified rollback workflow
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: reviewed-rollback-source
+          path: work/source
+      - name: Rebuild and SHA-verify published RC8.3 before modifying it
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p work dist
-          curl --fail --silent --show-error --location --retry 3 --proto '=https' --tlsv1.2 \
-            'https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.8.3/GW2-Account-Companion-v5.9.0-rc.8.3-All-in-One.zip' -o work/rc83.zip
-          echo 'ef27fc3a018227ac2e7377fcddb1ac8f3f6d9ddba3f991feadd4bb8cfab0cc65  work/rc83.zip' | sha256sum -c -
-          (cd work && unzip -q rc83.zip && mv GW2-Account-Companion-v5.9.0-rc.8.3 source)
+          mkdir -p dist
+          python3 .github/rc83-patch.py work/source
+          cp .github/rc83-handoff.test.mjs work/source/tests/rc83-handoff.test.mjs
+          python3 work/source/tools/build-release.py dist/verified-rc83.zip
+          echo 'ef27fc3a018227ac2e7377fcddb1ac8f3f6d9ddba3f991feadd4bb8cfab0cc65  dist/verified-rc83.zip' | sha256sum -c -
       - name: Apply strictly scoped RC9 launcher change
         shell: bash
         run: |
