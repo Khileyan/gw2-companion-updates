@@ -1,0 +1,114 @@
+name: RC10 stability candidate regression (never publish)
+
+on:
+  push:
+    branches: [feature/rc10-stability]
+    paths:
+      - '.github/rc10-patch.py'
+      - '.github/rc10-stability.test.mjs'
+      - '.github/workflows/rc10-candidate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rc10-stability-candidate
+  cancel-in-progress: false
+
+jobs:
+  verify-base:
+    uses: ./.github/workflows/test-rollback-safety.yml
+    permissions:
+      contents: read
+
+  candidate:
+    needs: verify-base
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: reviewed-rollback-source
+          path: source
+      - name: Reconstruct source and verify BOTH immutable releases
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          python3 .github/rc83-patch.py source
+          cp .github/rc83-handoff.test.mjs source/tests/rc83-handoff.test.mjs
+          python3 source/tools/build-release.py dist/rc83.zip
+          echo 'ef27fc3a018227ac2e7377fcddb1ac8f3f6d9ddba3f991feadd4bb8cfab0cc65  dist/rc83.zip' | sha256sum -c -
+          python3 .github/rc9-patch.py source
+          python3 source/tools/build-release.py dist/rc9.zip
+          echo '0a14777d4724da0fc88c9198a61ef1f03e0aa185e89e0367c2c09f095782a271  dist/rc9.zip' | sha256sum -c -
+      - name: Apply scoped RC10 candidate and execute full regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 .github/rc10-patch.py source
+          cp .github/rc10-stability.test.mjs source/tests/rc10-stability.test.mjs
+          find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
+          (cd source && node --test tests/*.test.mjs)
+          python3 source/tools/build-release.py dist/rc10-candidate.zip
+          python3 source/tools/build-release.py dist/independent.zip
+          cmp dist/rc10-candidate.zip dist/independent.zip
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './source/app/install-verified.mjs';
+          import {compareVersions} from './source/app/updater.mjs';
+          if(compareVersions('5.9.0-rc.10','5.9.0-rc.9')!==1)throw Error('RC10 version ordering failed');
+          inspectReleaseZip(fs.readFileSync('dist/rc10-candidate.zip'),{version:'5.9.0-rc.10'});
+          JS
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc10-candidate-source
+          path: source/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc10-candidate-unpublished
+          path: dist/rc10-candidate.zip
+          if-no-files-found: error
+
+  windows:
+    needs: candidate
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc10-candidate-source
+          path: source
+      - name: PowerShell 5.1 syntax and manual update UI regression
+        shell: powershell
+        run: |
+          foreach($relative in @('bootstrap/Start-Managed.ps1','bootstrap/Update-Progress.ps1','launcher/GW2-Companion.ps1')){
+            $file=(Resolve-Path (Join-Path source $relative)).Path
+            $tokens=$null;$errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){$errors | ForEach-Object {Write-Host $_.Message};throw "PowerShell syntax invalid: $relative"}
+          }
+          & ./.github/rc9-tray-test.ps1 -Launcher (Resolve-Path source/launcher/GW2-Companion.ps1).Path
+          if(-not $?){exit 1}
+          node --test source/tests/rc10-stability.test.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - name: Windows update/rollback safety regressions
+        shell: powershell
+        run: |
+          Push-Location source
+          try{
+            node --test tests/rc83-handoff.test.mjs tests/rollback-safety.test.mjs tests/v590-fixed-layout.test.mjs
+            if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          }finally{Pop-Location}
+
+# No release creation, no signing key and no preview.json updates.
