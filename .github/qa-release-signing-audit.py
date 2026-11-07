@@ -30,3 +30,12 @@ for rel, intervals in [('app/publish-release.mjs',[(1,24),(38,47)]),('tools/buil
   if not any(a<=i<=b for a,b in intervals):continue
   if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
   print('PUBLISH-SOURCE',rel,i,line[:240])
+
+for rel in ['bootstrap/check-release.mjs','app/check-release.mjs','app/updater.mjs']:
+ p=root/rel
+ if not p.exists():continue
+ print('CHECK-DETAIL',rel,'lines',len(p.read_text(encoding='utf-8-sig').splitlines()))
+ for i,line in enumerate(p.read_text(encoding='utf-8-sig').splitlines(),1):
+  if rel.endswith('updater.mjs') and not (1<=i<=43):continue
+  if re.search(r'[A-Za-z0-9+/]{80,}|secret.*=|token.*=',line,re.I):continue
+  print('CHECK-CODE',rel,i,line[:240])
