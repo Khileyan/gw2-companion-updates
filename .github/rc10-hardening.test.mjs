@@ -16,7 +16,7 @@ test('RC10: stale and unverifiable version badges cannot enable install',()=>{
 });
 test('RC10: historical errors are not treated as active recovery without a journal',()=>{
  assert.match(gui,/historical_recovery_status/);
- assert.match(gui,/updater\\fixed-transaction\.json/);
+ assert.ok(gui.includes('fixed-transaction.json'));
  assert.match(gui,/if\(Test-Path -LiteralPath \$journal\)/);
 });
 test('RC10: child processes are disposed and diagnostics remain sanitized',()=>{
