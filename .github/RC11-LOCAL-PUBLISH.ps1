@@ -37,12 +37,6 @@ if(@($releaseList | Where-Object {$_.tagName -ceq "v$version"}).Count -gt 0){
 Write-Host "Paketpruefung erfolgreich: $name" -ForegroundColor Green
 Write-Host "SHA256: $got"
 Write-Host 'Private Signierschluesseldatei verbleibt lokal.'
-if(-not $Publish){
- Write-Host 'NUR VORPRUEFUNG. Fuer eine tatsaechliche Veroeffentlichung den Parameter -Publish verwenden.'
- return
-}
-$answer=Read-Host 'Zum Signieren UND Veroeffentlichen wortwoertlich PUBLISH RC11 eingeben'
-if($answer -cne 'PUBLISH RC11'){throw 'Veroeffentlichung nicht bestaetigt.'}
 $temp=Join-Path ([IO.Path]::GetTempPath()) ("GW2-RC11-signing-"+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temp | Out-Null
 try {
@@ -91,6 +85,13 @@ try {
      }
    }
  }
+ Write-Host 'Publisher-Arbeitsverzeichnis und Versionsdatei geprueft.' -ForegroundColor Green
+ if(-not $Publish){
+   Write-Host 'NUR VORPRUEFUNG. Keine Signierung oder Veroeffentlichung.'
+   return
+ }
+ $answer=Read-Host 'Zum Signieren UND Veroeffentlichen wortwoertlich PUBLISH RC11 eingeben'
+ if($answer -cne 'PUBLISH RC11'){throw 'Veroeffentlichung nicht bestaetigt.'}
  Push-Location $temp
  try { & node.exe $found[0].FullName $publisherZip $key
    if($LASTEXITCODE -ne 0){throw 'Publisher fehlgeschlagen. GitHub Release und Preview-Manifest vor erneutem Versuch manuell pruefen!'}
