@@ -54,5 +54,22 @@ old_note="RC8: versionsgenaue Titelleiste, Doppelstart-Erkennung und automatisch
 new_note="RC9: Windows-Tray-Startfehler behoben; Verbindung und Statuswechsel stabilisiert; signiertes Update."
 if pub.count(old_note)!=1:raise SystemExit('Unexpected publisher release-note source')
 write(publisher,pub.replace(old_note,new_note))
+# The old icon asset test asserted per-transition bitmap drawing, which was
+# deliberately removed to prevent the confirmed Windows NotifyIcon crash.
+# Preserve verification that the packaged ICO is still loaded on startup.
+icon_test=root/'tests/icon-assets.test.mjs'
+it=read(icon_test)
+lines=it.splitlines(keepends=True)
+hits=[i for i,line in enumerate(lines) if 'DrawImage' in line and 'assert.match' in line]
+if len(hits)!=1:raise SystemExit('Unknown icon assets regression layout')
+import re
+m=re.search(r'assert\\.match\\(\\s*([A-Za-z_$][A-Za-z0-9_$]*)\\s*,',lines[hits[0]])
+if not m:raise SystemExit('Unknown icon test assertion operand')
+var=m.group(1)
+lines[hits[0]]=('  assert.match('+var+r', /\\$tray\\.Icon=\\$script:BrandIcon/);'+'\\n')
+it=''.join(lines)
+if 'DrawImage' in it and 'assert.match' in it:
+ raise SystemExit('Obsolete icon assertion still present')
+write(icon_test,it)
 if target not in read(root/'app-version.json'):raise SystemExit('Patch did not update version')
 print('RC9 narrow GUI tray fix applied')
