@@ -47,5 +47,12 @@ for p in (root/'tests').glob('*.test.mjs'):
  s=s.replace(base,target).replace(r'5\.9\.0-rc\.8\.3',r'5\.9\.0-rc\.9')
  s=s.replace('__FUTURE__','5.9.0-rc.9.1').replace('__FUTURE_ESC__',r'5\.9\.0-rc\.9\.1')
  write(p,s)
+# Release notes shown to the user by the signed publisher (not an RC8 carry-over).
+publisher=root/'app/publish-release.mjs'
+pub=read(publisher)
+old_note="RC8: versionsgenaue Titelleiste, Doppelstart-Erkennung und automatische Update-Benachrichtigung; signierte Release-Veroeffentlichung."
+new_note="RC9: Windows-Tray-Startfehler behoben; Verbindung und Statuswechsel stabilisiert; signiertes Update."
+if pub.count(old_note)!=1:raise SystemExit('Unexpected publisher release-note source')
+write(publisher,pub.replace(old_note,new_note))
 if target not in read(root/'app-version.json'):raise SystemExit('Patch did not update version')
 print('RC9 narrow GUI tray fix applied')
