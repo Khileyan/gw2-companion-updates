@@ -12,6 +12,8 @@ function setup(t){
  return root;
 }
 const journal=r=>path.join(r,'updater','fixed-transaction.json');
+const session=r=>path.join(r,'updater','launcher-session.json');
+const exitedRecord={schema:2,pid:12345,started_at_utc:'2026-11-07T14:28:22.123Z',version:'5.9.0-rc.10'};
 test('recovery cannot operate while normal update owns exclusive lock',t=>{
  const r=setup(t),owner=acquireExclusiveUpdateLock(r,{kind:'fixed-update'});
  fs.writeFileSync(journal(r),'keep');
@@ -34,7 +36,11 @@ test('normal update or rollback cannot acquire lock during recovery',t=>{
 });
 test('failed recovery preserves journal and releases only owned lock',t=>{
  const r=setup(t);fs.writeFileSync(journal(r),'KEEP');
- assert.throws(()=>recoverWithExclusiveLock(r,{recover:()=>{throw Error('synthetic EPERM')}}),/synthetic EPERM/);
+ fs.writeFileSync(session(r),JSON.stringify(exitedRecord));
+ assert.throws(()=>recoverWithExclusiveLock(r,{
+  verifySession:()=> 'process_exited',
+  recover:()=>{throw Error('synthetic EPERM')}
+ }),/synthetic EPERM/);
  assert.equal(fs.readFileSync(journal(r),'utf8'),'KEEP');
  assert.equal(fs.existsSync(path.join(r,'updater','update.lock')),false);
 });
@@ -55,4 +61,35 @@ test('synchronous-only recovery refuses escaped asynchronous mutations',t=>{
  const r=setup(t);
  assert.throws(()=>recoverWithExclusiveLock(r,{recover:()=>Promise.resolve()}),/Async recovery is not supported/);
  assert.equal(fs.existsSync(path.join(r,'updater','update.lock')),false);
+});
+
+test('live launcher denies recovery before any file mutation',t=>{
+ const r=setup(t);fs.writeFileSync(journal(r),'keep');
+ fs.writeFileSync(session(r),JSON.stringify(exitedRecord));
+ let called=false;
+ assert.throws(()=>recoverWithExclusiveLock(r,{
+  verifySession:()=> 'launcher_still_running',recover:()=>{called=true;}
+ }),/launcher exit not verified/);
+ assert.equal(called,false);
+ assert.equal(fs.readFileSync(journal(r),'utf8'),'keep');
+});
+test('missing launcher session denies recovery and preserves journal',t=>{
+ const r=setup(t);fs.writeFileSync(journal(r),'keep');
+ assert.throws(()=>recoverWithExclusiveLock(r,{recover:()=>{throw Error('should not execute')}}),/identity unavailable/);
+ assert.equal(fs.readFileSync(journal(r),'utf8'),'keep');
+});
+test('legacy PID-only session cannot authorize recovery',t=>{
+ const r=setup(t);fs.writeFileSync(journal(r),'keep');
+ fs.writeFileSync(session(r),JSON.stringify({pid:12345,version:'5.9.0-rc.10'}));
+ assert.throws(()=>recoverWithExclusiveLock(r,{recover:()=>{throw Error('should not execute')}}),/launcher exit not verified/);
+});
+test('verified exited process authorizes recovery only under exclusive lock',t=>{
+ const r=setup(t);fs.writeFileSync(journal(r),'keep');
+ fs.writeFileSync(session(r),JSON.stringify(exitedRecord));
+ const out=recoverWithExclusiveLock(r,{
+  verifySession:()=> 'process_exited',
+  recover:()=>{assert.ok(fs.existsSync(path.join(r,'updater','update.lock')));return {safe:true}}
+ });
+ assert.deepEqual(out,{safe:true});
+ assert.equal(fs.readFileSync(journal(r),'utf8'),'keep');
 });
