@@ -14,6 +14,7 @@ This is a release checklist for the **draft** QA branch. It is not authorization
 - [x] Linux/Windows QA gate green on final code SHA ddbb98d2d281ea35d1bea5d72d8f2da89ae4e330 (CI #126: Linux 336 passed, one Windows-only skipped; Windows QA 53/53, rollback 22/22, UI 3/3).
 - [x] Current production recovery/activation call sites audited and restricted to reviewed modules in CI; `fixed-confirm.mjs` verifies exclusive ownership. Future new call sites fail source audit.
 - [ ] Final release-security review, including Windows reparse points, non-cooperating filesystem writers, file identity/check–use races, retained journal backups, and crash-after-commit behavior; no claim of mathematical/absolute safety.
+- [x] Original owner-only Ed25519 publisher and pin verification procedure audited; canonical unsigned RC11 archive + SHA256 prepared, guarded local PowerShell publisher script syntax-checked in CI #139.
 - [ ] Final signed RC11 release signed by authorized publisher, verified manifest and immutable GitHub asset digests.
 - [ ] `preview.json` switch **only after** authorized signed release, separate explicit user approval and a staged rollback plan.
 - [ ] Windows live smoke testing on user machine after approval (GUI launch, connected plugin diagnostics, manual update check, clean restart, journal and lock cleanup, backup policy).
