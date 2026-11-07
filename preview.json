@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.9",
+  "version": "5.9.0-rc.10",
   "channel": "preview",
-  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.9/GW2-Account-Companion-v5.9.0-rc.9-All-in-One.zip",
-  "sha256": "0a14777d4724da0fc88c9198a61ef1f03e0aa185e89e0367c2c09f095782a271",
-  "bytes": 500894,
+  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.10/GW2-Account-Companion-v5.9.0-rc.10-All-in-One.zip",
+  "sha256": "9f2760cb49929f8aa597b09b613c78b2e3b9a10cf727e2c3fe9a1f2bd7c62163",
+  "bytes": 504435,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC9: Windows-Tray-Startfehler behoben; Verbindung und Statuswechsel stabilisiert; signiertes Update.",
-  "signature": "gXbKB5DhIlE27KdmqNi2fr5kdixotYtd/PdP4x/O5vJKEkjPYldnDptN7YLK2q7sl2JmuDF8UjO9B9fL8jv/Dw=="
+  "changelog": "RC10: Separate Versionspruefung, verbesserte Aktualitaets- und Sicherheitskontrollen.",
+  "signature": "VxlYQhk0Q+WpYs4ef2w/OPWavylTrg8UFIjDYU4L0qPrVTfQ4oKmHdjZ9lsf/cumQc9ycQ71m9jH36Kwtd/cDw=="
 }
