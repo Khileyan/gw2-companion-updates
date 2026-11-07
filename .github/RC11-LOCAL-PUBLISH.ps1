@@ -60,6 +60,37 @@ try {
  Copy-Item -LiteralPath $zip -Destination $publisherZip -ErrorAction Stop
  $copyHash=(Get-FileHash -LiteralPath $publisherZip -Algorithm SHA256).Hash.ToLowerInvariant()
  if($copyHash -cne $got){throw 'Temporäre ZIP-Kopie weicht vom verifizierten Paket ab.'}
+ # The reproducible release builder deliberately excludes root app-version.json.
+ # The owner-only publisher uses it as a self-version marker; restore it in the
+ # TEMPORARY workspace from the verified, packaged app/package.json, not in ZIP.
+ $publisherRoot=Split-Path -Parent (Split-Path -Parent $found[0].FullName)
+ $packageJson=Join-Path $publisherRoot 'app\package.json'
+ if(-not (Test-Path -LiteralPath $packageJson -PathType Leaf)){
+   throw 'Paket enthaelt keine app/package.json im erwarteten Versionsordner.'
+ }
+ $packageData=Get-Content -LiteralPath $packageJson -Raw | ConvertFrom-Json
+ if($packageData.version -cne $version){
+   throw 'Paketversion stimmt nicht mit dem RC11-Publisher ueberein.'
+ }
+ $markerPath=Join-Path $publisherRoot 'app-version.json'
+ if(Test-Path -LiteralPath $markerPath){
+   $existingMarker=Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json
+   if($existingMarker.version -cne $version){throw 'Abweichende app-version.json: Abbruch.'}
+ }else{
+   $markerJson=(@{version=$version} | ConvertTo-Json -Compress)
+   [IO.File]::WriteAllText($markerPath,$markerJson,[Text.UTF8Encoding]::new($false))
+ }
+ # The original release publisher validates against its own *pinned* trust
+ # configuration; never synthesize trust settings from the private key.
+ $configRoot=Join-Path $env:LOCALAPPDATA 'GW2-Account-Companion\config'
+ $embeddedConfig=Join-Path $publisherRoot 'config'
+ if(-not (Test-Path -LiteralPath (Join-Path $embeddedConfig 'publisher-public.pem') -PathType Leaf)){
+   foreach($required in @('publisher-public.pem','update-source.json')){
+     if(-not (Test-Path -LiteralPath (Join-Path $configRoot $required) -PathType Leaf)){
+       throw "Publisher-Vertrauenskonfiguration fehlt: $configRoot\$required. Keine Veroeffentlichung."
+     }
+   }
+ }
  Push-Location $temp
  try { & node.exe $found[0].FullName $publisherZip $key
    if($LASTEXITCODE -ne 0){throw 'Publisher fehlgeschlagen. GitHub Release und Preview-Manifest vor erneutem Versuch manuell pruefen!'}
