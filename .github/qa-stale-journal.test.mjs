@@ -15,6 +15,7 @@ function setup(t,opts={}){
   for(const dir of ['app','launcher','assets','projects','bootstrap'])fs.mkdirSync(path.join(backup,dir),{recursive:true});
   fs.mkdirSync(path.join(root,'app'));
   const save=(p,x)=>fs.writeFileSync(p,JSON.stringify(x));
+  save(path.join(u,'launcher-session.json'),{pid:2147483646});
   save(path.join(root,'app','package.json'),{version:opts.installed??'5.9.0-rc.9'});
   save(path.join(root,'app-version.json'),{version:opts.marker??'5.9.0-rc.9'});
   save(path.join(backup,'app','package.json'),{version:'5.9.0-rc.8.2'});
@@ -50,6 +51,11 @@ for(const [name,mutate,expected] of [
   assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,expected);
   assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused/);
   assert.ok(fs.existsSync(path.join(f.u,'fixed-transaction.json')));
+});
+test('absent launcher session vetoes unverified archival',t=>{
+  const f=setup(t);fs.rmSync(path.join(f.u,'launcher-session.json'));
+  assert.equal(inspectStaleJournal(f.root,{now:NOW,isAlive:()=>false}).reason,'launcher_state_unverified');
+  assert.throws(()=>archiveStaleJournal(f.root,{approved:true,now:NOW,isAlive:()=>false}),/Archive refused/);
 });
 test('running launcher session vetoes archival',t=>{
   const f=setup(t);f.save(path.join(f.u,'launcher-session.json'),{pid:1234});
