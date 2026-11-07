@@ -67,7 +67,7 @@ prefix=line.split('assert.match(',1)
 if len(prefix)!=2:raise SystemExit('Unexpected icon assertion form')
 var=prefix[1].split(',',1)[0].strip()
 if not var.isidentifier():raise SystemExit('Unexpected icon assertion variable')
-lines[hits[0]]=('  assert.match('+var+r', /\\$tray\\.Icon=\\$script:BrandIcon/);'+'\n')
+lines[hits[0]]=('  assert.match('+var+r', /\$tray\.Icon=\$script:BrandIcon/);'+'\n')
 it=''.join(lines)
 if 'DrawImage' in it and 'assert.match' in it:
  raise SystemExit('Obsolete icon assertion still present')
