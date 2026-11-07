@@ -16,6 +16,7 @@ on:
       - '.github/qa-stale-journal-diagnostics.py'
       - '.github/qa-exclusive-update-lock.mjs'
       - '.github/qa-exclusive-update-lock.test.mjs'
+      - '.github/qa-fixed-lock-integration.py'
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -71,6 +72,7 @@ jobs:
           cp .github/qa-stale-journal.mjs source/bootstrap/stale-journal.mjs
           cp .github/qa-exclusive-update-lock.mjs source/bootstrap/exclusive-update-lock.mjs
           python3 .github/qa-stale-journal-integration.py source
+          python3 .github/qa-fixed-lock-integration.py source
           python3 .github/qa-stale-journal-diagnostics.py source
           cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
           cp .github/qa-exclusive-update-lock.test.mjs source/tests/qa-exclusive-update-lock.test.mjs
