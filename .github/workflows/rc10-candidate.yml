@@ -26,6 +26,7 @@ on:
       - '.github/qa-rc12-progress-patch.py'
       - '.github/qa-rc12-progress.test.mjs'
       - '.github/RC12-LOCAL-PUBLISH.ps1'
+      - '.github/RC12-UI-SMOKE.ps1'
       - '.github/qa-rc11-package-smoke.mjs'
       - '.github/qa-release-signing-audit.py'
       - '.github/RC11-LOCAL-PUBLISH.ps1'
@@ -159,6 +160,7 @@ jobs:
           cp dist/rc12-qa-unsigned.zip dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip
           (cd dist && sha256sum GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip > RC12-SHA256SUMS.txt)
           cp .github/RC12-LOCAL-PUBLISH.ps1 dist/RC12-LOCAL-PUBLISH.ps1
+          cp .github/RC12-UI-SMOKE.ps1 dist/RC12-UI-SMOKE.ps1
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import {inspectReleaseZip} from './rc12-source/app/install-verified.mjs';
@@ -202,6 +204,7 @@ jobs:
             dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip
             dist/RC12-SHA256SUMS.txt
             dist/RC12-LOCAL-PUBLISH.ps1
+            dist/RC12-UI-SMOKE.ps1
           if-no-files-found: error
 
 
@@ -270,6 +273,21 @@ jobs:
           $src=Get-Content -LiteralPath $path -Raw
           foreach($required in @('5.9.0-rc.12','PUBLISH RC12','publisherZip','copyHash','app-version.json','packageData.version','publisher-public.pem','update-source.json')){
             if(-not $src.Contains($required)){throw "Missing RC12 fail-closed gate: $required"}
+          }
+      - name: Windows PowerShell 5.1 isolated RC12 GUI smoke parses and never runs update
+        shell: powershell
+        run: |
+          $path=(Resolve-Path .github/RC12-UI-SMOKE.ps1).Path
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors | ForEach-Object {Write-Host $_.Message};throw 'RC12 GUI smoke syntax invalid'}
+          $src=Get-Content -LiteralPath $path -Raw
+          foreach($required in @('-WindowStyle Normal','Main','HANDSHAKE OK','-STA','-Child','Start-Process','Windows.Forms.Application')){
+            if($required -eq 'Main'){continue}
+            if(-not $src.Contains($required)){throw "RC12 UI smoke prerequisite missing: $required"}
+          }
+          if($src.Contains('fixed-update.mjs') -or $src.Contains('update.lock') -or $src.Contains('shutdown.request')){
+            throw 'RC12 smoke test must remain isolated from actual updater'
           }
       - name: Windows PowerShell 5.1 RC12 independent progress host regression
         shell: powershell
