@@ -319,7 +319,9 @@ jobs:
           & $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
           if($LASTEXITCODE -ne 0){throw 'Valid RC10 simulation unexpectedly rejected by read-only migration gate'}
           [IO.File]::WriteAllText((Join-Path $fixture 'updater/update.lock'),'simulated active transaction')
-          & $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
+          # A failing PowerShell script calls exit 2; run it as a child so the
+          # CI shell survives to assert the *exact* refusal exit code.
+          & "$PSHOME/powershell.exe" -NoProfile -ExecutionPolicy Bypass -File $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
           if($LASTEXITCODE -ne 2){throw 'Active update lock must cause a controlled STOP'}
       - name: Windows PowerShell 5.1 RC12 independent progress host regression
         shell: powershell
