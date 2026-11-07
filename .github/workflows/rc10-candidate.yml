@@ -196,9 +196,27 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors) | Out-Null
           if($errors.Count){$errors | ForEach-Object {Write-Host $_.Message};throw 'RC11 publisher handoff syntax error'}
           $src=Get-Content -LiteralPath $file -Raw
-          foreach($required in @('PUBLISH RC11','Get-FileHash','-Publish','SigningKeyFile','publisherZip','Copy-Item','copyHash')){
+          foreach($required in @('PUBLISH RC11','Get-FileHash','-Publish','SigningKeyFile','publisherZip','Copy-Item','copyHash','packageData.version','app-version.json','publisher-public.pem','update-source.json')){
             if(-not $src.Contains($required)){throw "Missing RC11 local publication safety gate: $required"}
           }
+      - name: RC11 publisher workspace smoke test without secrets or publication
+        shell: powershell
+        run: |
+          $archive=Join-Path (Get-Location) 'dist/rc11-qa-unsigned.zip'
+          $tmp=Join-Path $env:RUNNER_TEMP 'rc11-publisher-staging-qa'
+          New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+          try {
+            Expand-Archive -LiteralPath $archive -DestinationPath $tmp -Force
+            $root=Join-Path $tmp 'GW2-Account-Companion-v5.9.0-rc.11'
+            $pkg=Get-Content (Join-Path $root 'app/package.json') -Raw | ConvertFrom-Json
+            if($pkg.version -cne '5.9.0-rc.11'){throw 'RC11 package version mismatch'}
+            # These test the actual missing marker and the temporary-only repair contract.
+            $marker=Join-Path $root 'app-version.json'
+            if(Test-Path -LiteralPath $marker){throw 'Unexpected root marker in ZIP; revisit handoff assumptions'}
+            [IO.File]::WriteAllText($marker,(@{version=$pkg.version}|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+            node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(v.version!=='5.9.0-rc.11')process.exit(1)" $marker
+            if($LASTEXITCODE -ne 0){throw 'Temporary version marker invalid'}
+          }finally{Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue}
       - name: PowerShell 5.1 syntax and manual update UI regression
         shell: powershell
         run: |
