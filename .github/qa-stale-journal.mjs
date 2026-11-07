@@ -26,6 +26,7 @@ export function inspectStaleJournal(root,{now=Date.now(),minAgeMs=120000,isAlive
     if(exists(path.join(u,name)))return reason('update_in_progress_or_locked');
   }
   const session=path.join(u,'launcher-session.json');
+  if(!exists(session))return reason('launcher_state_unverified');
   if(exists(session)){
     let pid;
     try{pid=read(session).pid;}catch{return reason('unreadable_launcher_session');}
