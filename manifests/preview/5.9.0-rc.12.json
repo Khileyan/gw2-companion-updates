@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "version": "5.9.0-rc.12",
+  "channel": "preview",
+  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.12/GW2-Account-Companion-v5.9.0-rc.12.zip",
+  "sha256": "1644b7ee82262060f2498af3452948cf2bbb0882df3d73718ebb5adfd78334b7",
+  "bytes": 518369,
+  "min_updater_version": "5.9.0-rc.7",
+  "changelog": "RC12: Sichtbarer Update-Fortschritt, Start-Handshake und feinerer Abbruchstatus.",
+  "signature": "NWhFpz9irDjm1bioXsGUGsd1qk8CHJd1/HvELJOWfTk/lAzESbfrSYEW9W/g1FS3qBbCwukauFlt4+Me8f+ADA=="
+}
