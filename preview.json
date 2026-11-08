@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.12",
+  "version": "5.9.0-rc.13",
   "channel": "preview",
-  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.12/GW2-Account-Companion-v5.9.0-rc.12.zip",
-  "sha256": "1644b7ee82262060f2498af3452948cf2bbb0882df3d73718ebb5adfd78334b7",
-  "bytes": 518369,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/723447048",
+  "sha256": "27bbbb2894dfb2042a82cbc6917be3c3eab7603cab1384f42c2b88c24d0532af",
+  "bytes": 560802,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC12: Sichtbarer Update-Fortschritt, Start-Handshake und feinerer Abbruchstatus.",
-  "signature": "NWhFpz9irDjm1bioXsGUGsd1qk8CHJd1/HvELJOWfTk/lAzESbfrSYEW9W/g1FS3qBbCwukauFlt4+Me8f+ADA=="
+  "changelog": "RC13: reproduzierbarer Releaseprozess aus der kanonischen Entwicklungsquelle und konsistente Versionsvorbereitung. Keine Browser-Werkstatt enthalten. Bestehende Accountdaten und Einstellungen bleiben im getrennten Benutzerprofil.",
+  "signature": "cmiMdqMrHFJ9Jx7jIDS4KCdQo2YBLWF05r93JlNdHnlXsGtQgf/7OKrUuGVV5kP25MRELE+fVaQvrGnVUMAcDg=="
 }
