@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "version": "5.9.0-rc.11",
+  "channel": "preview",
+  "download_url": "https://github.com/Khileyan/gw2-companion-updates/releases/download/v5.9.0-rc.11/GW2-Account-Companion-v5.9.0-rc.11.zip",
+  "sha256": "bcd2a105a3919205844962dcab512080ef05dd231f3f6015f0a6ad3d2058889c",
+  "bytes": 517725,
+  "min_updater_version": "5.9.0-rc.7",
+  "changelog": "RC11: Update-Sperren und sichere Wiederherstellung, Windows-Prozessidentitaet.",
+  "signature": "7T9sPLkqisOwRDgp0/jOlC6qW9VdA+j0HRMCcU36VjPut6b0I4GsgXCUeryXISHPBc0lBOg1AUApbG6l/66RDg=="
+}
