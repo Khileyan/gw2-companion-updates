@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "version": "5.9.0-rc.15",
+  "channel": "preview",
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/726066278",
+  "sha256": "15d352cc864bb87f8d330d4ef0d9149ba3fd39b0ff273e2e2f0ac66ac0961c02",
+  "bytes": 718063,
+  "min_updater_version": "5.9.0-rc.7",
+  "changelog": "RC15-Wartung: verständlichere Update-Meldungen und Download-Fortschritt in Prozent. Kein grafisches Werkstattfenster. Der neue Publisher-Schlüssel wird nach lokalem Pinwechsel verwendet.",
+  "signature": "Yfz19yNv/PexqXBNgrTsPfVVIV9GafvDsDkvaKDihvq8h4tijfockPqr+R47+jxXUi04PBAVYiZeM6V4Z6nMAQ=="
+}
