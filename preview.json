@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.15",
+  "version": "5.9.0-rc.16",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/726066278",
-  "sha256": "15d352cc864bb87f8d330d4ef0d9149ba3fd39b0ff273e2e2f0ac66ac0961c02",
-  "bytes": 718063,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/728528748",
+  "sha256": "cc11aec9e0a5ee6c7fdda9d42986d2a19ebc6733ea92cfe1f944788c43f2c0bb",
+  "bytes": 3461248,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC15-Wartung: verständlichere Update-Meldungen und Download-Fortschritt in Prozent. Kein grafisches Werkstattfenster. Der neue Publisher-Schlüssel wird nach lokalem Pinwechsel verwendet.",
-  "signature": "Yfz19yNv/PexqXBNgrTsPfVVIV9GafvDsDkvaKDihvq8h4tijfockPqr+R47+jxXUi04PBAVYiZeM6V4Z6nMAQ=="
+  "changelog": "RC16: Gegenstandsdetails nach Item-ID und Bestandsabfrage, klarere Update-Hinweise, Modellwahlregel fuer Entwicklungsauftraege. Navigation und Werkstatt bleiben offen. Neue Update-Texte greifen ab dem folgenden Update.",
+  "signature": "7uzV1+Z16oWPmeal17BlfgrziawYzlvj+RkGevHPRrXYwzzcml6H27BZXRExYquJrDzD/uTC3sjSIOR0wQ2wDQ=="
 }
