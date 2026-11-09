@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.14",
+  "version": "5.9.0-rc.15",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/725491192",
-  "sha256": "afe14eccab1731e4e6aff9158be124f077649ebafc8cb6ef5b620437d13eb7a4",
-  "bytes": 693838,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/726066278",
+  "sha256": "15d352cc864bb87f8d330d4ef0d9149ba3fd39b0ff273e2e2f0ac66ac0961c02",
+  "bytes": 718063,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC14 verbessert die Herstellungs- und Legendary-Planung mit zusätzlichen Erwerbswegen, Collection-Hinweisen und korrigierter gemeinsamer Bestandsanrechnung. Kaufpakete werden korrekt aufgerundet. Der Updateablauf enthält zusätzliche Wiederherstellungsprüfungen und klarere Statusmeldungen.",
-  "signature": "2SZsaIgRzvS7JAFzsVPE1O7RdFWQMRFY97KqgFtkjeseIAdDioIr1tzZ/8txkUde0akNqVIHBPBPPW4vpAizBA=="
+  "changelog": "RC15-Wartung: verständlichere Update-Meldungen und Download-Fortschritt in Prozent. Kein grafisches Werkstattfenster. Der neue Publisher-Schlüssel wird nach lokalem Pinwechsel verwendet.",
+  "signature": "Yfz19yNv/PexqXBNgrTsPfVVIV9GafvDsDkvaKDihvq8h4tijfockPqr+R47+jxXUi04PBAVYiZeM6V4Z6nMAQ=="
 }
