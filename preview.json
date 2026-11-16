@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.16",
+  "version": "5.9.0-rc.17",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/728528748",
-  "sha256": "cc11aec9e0a5ee6c7fdda9d42986d2a19ebc6733ea92cfe1f944788c43f2c0bb",
-  "bytes": 3461248,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/753944866",
+  "sha256": "2b5cd56ef2ee1e5ae2df5d8f02401ff2832f9461553f86a931af63a6c76591bb",
+  "bytes": 3465579,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC16: Gegenstandsdetails nach Item-ID und Bestandsabfrage, klarere Update-Hinweise, Modellwahlregel fuer Entwicklungsauftraege. Navigation und Werkstatt bleiben offen. Neue Update-Texte greifen ab dem folgenden Update.",
-  "signature": "7uzV1+Z16oWPmeal17BlfgrziawYzlvj+RkGevHPRrXYwzzcml6H27BZXRExYquJrDzD/uTC3sjSIOR0wQ2wDQ=="
+  "changelog": "RC17: Native Bereichsnavigation, öffentliche Suche im synchronisierten Katalog und direkte Item-ID-Abfrage; klarere Update-Hinweise.",
+  "signature": "wqE4LdL2GwHCFFW3jRA+YiUjqTaZGg6oXdHXtAzhQtQGgClEu14Y9HA1uFpSaCS/2yNrEIJepWEKDIjyOmklBg=="
 }
