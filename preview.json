@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.17",
+  "version": "5.9.0-rc.18",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/753944866",
-  "sha256": "2b5cd56ef2ee1e5ae2df5d8f02401ff2832f9461553f86a931af63a6c76591bb",
-  "bytes": 3465579,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/756751210",
+  "sha256": "1da96b3d4a317b3a982617cf3d65f7bc0cd9c1311c8c65e8f5a2c9f02a8767c7",
+  "bytes": 3472940,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC17: Native Bereichsnavigation, öffentliche Suche im synchronisierten Katalog und direkte Item-ID-Abfrage; klarere Update-Hinweise.",
-  "signature": "wqE4LdL2GwHCFFW3jRA+YiUjqTaZGg6oXdHXtAzhQtQGgClEu14Y9HA1uFpSaCS/2yNrEIJepWEKDIjyOmklBg=="
+  "changelog": "RC18: Native Handelspostenpreise, deutsche und englische Gegenstandssuche mit schrittweisem öffentlichen Katalogimport sowie erste Account-Lagerortübersicht. Windows-Umlaute korrigiert. Vollständiger Namensindex baut sich nach der Installation schrittweise auf.",
+  "signature": "qJTLR6Vj4bdMgKyVNyt0DPECfGXMTELoUSBTMWaKcUNak9r58N3InJcik6pcXPib+FA9L5182p8RDUShJBmyBQ=="
 }
