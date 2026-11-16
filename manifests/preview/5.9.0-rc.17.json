@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "version": "5.9.0-rc.17",
+  "channel": "preview",
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/753944866",
+  "sha256": "2b5cd56ef2ee1e5ae2df5d8f02401ff2832f9461553f86a931af63a6c76591bb",
+  "bytes": 3465579,
+  "min_updater_version": "5.9.0-rc.7",
+  "changelog": "RC17: Native Bereichsnavigation, öffentliche Suche im synchronisierten Katalog und direkte Item-ID-Abfrage; klarere Update-Hinweise.",
+  "signature": "wqE4LdL2GwHCFFW3jRA+YiUjqTaZGg6oXdHXtAzhQtQGgClEu14Y9HA1uFpSaCS/2yNrEIJepWEKDIjyOmklBg=="
+}
