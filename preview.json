@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.18",
+  "version": "5.9.0-rc.19",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/756751210",
-  "sha256": "1da96b3d4a317b3a982617cf3d65f7bc0cd9c1311c8c65e8f5a2c9f02a8767c7",
-  "bytes": 3472940,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/778636655",
+  "sha256": "8ff135f55b79d4242cd8c8143bcedb3bd63447ab2e96461780ce74e94220d24e",
+  "bytes": 3532324,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC18: Native Handelspostenpreise, deutsche und englische Gegenstandssuche mit schrittweisem öffentlichen Katalogimport sowie erste Account-Lagerortübersicht. Windows-Umlaute korrigiert. Vollständiger Namensindex baut sich nach der Installation schrittweise auf.",
-  "signature": "qJTLR6Vj4bdMgKyVNyt0DPECfGXMTELoUSBTMWaKcUNak9r58N3InJcik6pcXPib+FA9L5182p8RDUShJBmyBQ=="
+  "changelog": "Zweisprachiger Gegenstandskatalog mit Wiki-Quellen, Account-Bestand, Ausrüstungsvorlagen und Aufräumempfehlungen.",
+  "signature": "Y6ZprNvfvL7Ey8T0kIUlbLpC1sEO7L6kGo1nEEA6ND+PeB1lYB1BWim9o79ifR6sYGn7jeTFHy9TQyNqas06Dg=="
 }
