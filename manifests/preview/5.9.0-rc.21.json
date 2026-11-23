@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "version": "5.9.0-rc.21",
+  "channel": "preview",
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/780671250",
+  "sha256": "d54e6b483d4da153da339c4455c6ca4124b2501f68d54d039214746e8466a2e9",
+  "bytes": 3598464,
+  "min_updater_version": "5.9.0-rc.7",
+  "changelog": "Preview 5.9.0-rc.21",
+  "signature": "iweHae75gidCL/Wph7iCiCayZqDV6xz25LPKNd7tHWQTw4HodXnCWszyOBB5cnISR4/ZDVs6K34LIzZcnE7gBw=="
+}
