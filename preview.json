@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.21",
+  "version": "5.9.0-rc.22",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/780671250",
-  "sha256": "d54e6b483d4da153da339c4455c6ca4124b2501f68d54d039214746e8466a2e9",
-  "bytes": 3598464,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/782482356",
+  "sha256": "babac46dee31e0873fd9287d1cd5ee25762f114e43834a80cd0da1d32c598c1f",
+  "bytes": 3614339,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "Preview 5.9.0-rc.21",
-  "signature": "iweHae75gidCL/Wph7iCiCayZqDV6xz25LPKNd7tHWQTw4HodXnCWszyOBB5cnISR4/ZDVs6K34LIzZcnE7gBw=="
+  "changelog": "Öffentliche Spieldaten werden vor dem Öffnen abgeglichen. Das Tray zeigt wieder den Verbindungsstatus. Gespeicherte Werkstattpläne öffnen aus lokalen Daten. Legendary-Pfade zeigen verfügbare Accountdaten, Tauschkosten und bekannte Limits.",
+  "signature": "+HrMaxGp5P5lvr9ZWuSfxMMawLsuVcJ+It1y2A2o8reQBd5XpW/hADdW3Q4zcaLiu9CywPptWfy1PwFyqzA8CQ=="
 }
