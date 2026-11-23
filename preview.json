@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.22",
+  "version": "5.9.0-rc.23",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/782482356",
-  "sha256": "babac46dee31e0873fd9287d1cd5ee25762f114e43834a80cd0da1d32c598c1f",
-  "bytes": 3614339,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/784653333",
+  "sha256": "16d451bde087103304df9014b5394aebc6de6438c2ae4e86440739f1b675b438",
+  "bytes": 3460279,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "Öffentliche Spieldaten werden vor dem Öffnen abgeglichen. Das Tray zeigt wieder den Verbindungsstatus. Gespeicherte Werkstattpläne öffnen aus lokalen Daten. Legendary-Pfade zeigen verfügbare Accountdaten, Tauschkosten und bekannte Limits.",
-  "signature": "+HrMaxGp5P5lvr9ZWuSfxMMawLsuVcJ+It1y2A2o8reQBd5XpW/hADdW3Q4zcaLiu9CywPptWfy1PwFyqzA8CQ=="
+  "changelog": "RC23: Account-Snapshots mit Hintergrundabgleich alle 15 Minuten, lokale Werkstattabfragen, verbesserte Startanzeige und Tray-Symbole sowie erweiterte Katalog- und Herstellungsdaten.",
+  "signature": "Y9JaaorlhCNqEMVdgUfsaDYUBaJzL9ozRr959GdxNtnFQ4KIhzJ7iMR5PbnUWcVaVfjrmfKzWic7zjkEbl1eDw=="
 }
