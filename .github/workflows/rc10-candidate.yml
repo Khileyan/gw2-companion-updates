@@ -2,7 +2,7 @@ name: RC10 stability candidate regression (never publish)
 
 on:
   push:
-    branches: [feature/rc10-stability]
+    branches: [feature/rc10-stability, quality/rc10-stale-journal-regression]
     paths:
       - '.github/rc10-patch.py'
       - '.github/rc10-stability.test.mjs'
@@ -10,6 +10,34 @@ on:
       - '.github/rc10-hardening-patch.py'
       - '.github/rc10-recovery-patch.py'
       - '.github/workflows/rc10-candidate.yml'
+      - '.github/qa-stale-journal.mjs'
+      - '.github/qa-stale-journal.test.mjs'
+      - '.github/qa-stale-journal-integration.py'
+      - '.github/qa-stale-journal-diagnostics.py'
+      - '.github/qa-exclusive-update-lock.mjs'
+      - '.github/qa-exclusive-update-lock.test.mjs'
+      - '.github/qa-fixed-lock-integration.py'
+      - '.github/qa-process-identity-audit.py'
+      - '.github/qa-recovery-boundary-audit.py'
+      - '.github/qa-recovery-callers-audit.py'
+      - '.github/qa-recovery-lock-integration.py'
+      - '.github/qa-confirm-lock-integration.py'
+      - '.github/qa-rc11-version.py'
+      - '.github/qa-rc12-progress-patch.py'
+      - '.github/qa-rc12-progress.test.mjs'
+      - '.github/RC12-LOCAL-PUBLISH.ps1'
+      - '.github/RC12-UI-SMOKE.ps1'
+      - '.github/RC12-MIGRATION-PREFLIGHT.ps1'
+      - '.github/qa-rc11-package-smoke.mjs'
+      - '.github/qa-release-signing-audit.py'
+      - '.github/RC11-LOCAL-PUBLISH.ps1'
+      - '.github/RC11-SIGNING-HANDOFF.md'
+      - '.github/qa-recovery-lock.test.mjs'
+      - '.github/qa-launcher-session-identity.py'
+      - '.github/qa-launcher-process-identity.mjs'
+      - '.github/qa-launcher-process-identity.test.mjs'
+  pull_request:
+    branches: [main]
   workflow_dispatch:
   workflow_call:
 
@@ -60,17 +88,87 @@ jobs:
           python3 .github/rc10-recovery-patch.py source
           cp .github/rc10-stability.test.mjs source/tests/rc10-stability.test.mjs
           cp .github/rc10-hardening.test.mjs source/tests/rc10-hardening.test.mjs
+          cp .github/qa-stale-journal.mjs source/bootstrap/stale-journal.mjs
+          cp .github/qa-exclusive-update-lock.mjs source/bootstrap/exclusive-update-lock.mjs
+          python3 .github/qa-stale-journal-integration.py source
+          python3 .github/qa-fixed-lock-integration.py source
+          python3 .github/qa-recovery-lock-integration.py source
+          python3 .github/qa-confirm-lock-integration.py source
+          python3 .github/qa-stale-journal-diagnostics.py source
+          python3 .github/qa-launcher-session-identity.py source
+          cp .github/qa-launcher-process-identity.mjs source/bootstrap/launcher-process-identity.mjs
+          python3 .github/qa-process-identity-audit.py source
+          python3 .github/qa-recovery-boundary-audit.py source
+          python3 .github/qa-recovery-callers-audit.py source
+          python3 .github/qa-release-signing-audit.py source
+          cp .github/qa-stale-journal.test.mjs source/tests/qa-stale-journal.test.mjs
+          cp .github/qa-exclusive-update-lock.test.mjs source/tests/qa-exclusive-update-lock.test.mjs
+          cp .github/qa-launcher-process-identity.test.mjs source/tests/qa-launcher-process-identity.test.mjs
+          cp .github/qa-recovery-lock.test.mjs source/tests/qa-recovery-lock.test.mjs
           find source/app source/bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check
           (cd source && node --test tests/*.test.mjs)
           python3 source/tools/build-release.py dist/rc10-candidate.zip
           python3 source/tools/build-release.py dist/independent.zip
           cmp dist/rc10-candidate.zip dist/independent.zip
+          unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/stale-journal.mjs'
+          unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/exclusive-update-lock.mjs'
+          unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/launcher-process-identity.mjs'
+          unzip -Z1 dist/rc10-candidate.zip | grep -F 'bootstrap/fixed-confirm.mjs'
           node --input-type=module <<'JS'
           import fs from 'node:fs';
           import {inspectReleaseZip} from './source/app/install-verified.mjs';
           import {compareVersions} from './source/app/updater.mjs';
           if(compareVersions('5.9.0-rc.10','5.9.0-rc.9')!==1)throw Error('RC10 version ordering failed');
           inspectReleaseZip(fs.readFileSync('dist/rc10-candidate.zip'),{version:'5.9.0-rc.10'});
+          JS
+      - name: Build unsigned, non-publishing RC11 versioned preview for release-readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a source rc11-source
+          python3 .github/qa-rc11-version.py rc11-source
+          python3 rc11-source/tools/build-release.py dist/rc11-qa-unsigned.zip
+          python3 rc11-source/tools/build-release.py dist/rc11-independent-unsigned.zip
+          cmp dist/rc11-qa-unsigned.zip dist/rc11-independent-unsigned.zip
+          cp dist/rc11-qa-unsigned.zip dist/GW2-Account-Companion-v5.9.0-rc.11-All-in-One-Preview.zip
+          (cd dist && sha256sum GW2-Account-Companion-v5.9.0-rc.11-All-in-One-Preview.zip > RC11-SHA256SUMS.txt)
+          (cd dist && sha256sum -c RC11-SHA256SUMS.txt)
+
+          node .github/qa-rc11-package-smoke.mjs dist/rc11-qa-unsigned.zip
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './source/app/install-verified.mjs';
+          import {compareVersions} from './source/app/updater.mjs';
+          if(compareVersions('5.9.0-rc.11','5.9.0-rc.10')!==1)throw Error('RC11 must exceed signed RC10');
+          const target='rc11-source';
+          for(const p of ['app/package.json','app-version.json']){
+            if(JSON.parse(fs.readFileSync(target+'/'+p,'utf8')).version!=='5.9.0-rc.11')throw Error('RC11 version marker mismatch '+p);
+          }
+          const entries=inspectReleaseZip(fs.readFileSync('dist/rc11-qa-unsigned.zip'),{version:'5.9.0-rc.11'}).records;
+          if(!entries.length)throw Error('Empty RC11 candidate archive');
+          JS
+      - name: RC12 non-publishing hotfix candidate build and regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp -a rc11-source rc12-source
+          python3 .github/qa-rc12-progress-patch.py rc12-source
+          node --test .github/qa-rc12-progress.test.mjs
+          (cd rc12-source && find app bootstrap -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check)
+          python3 rc12-source/tools/build-release.py dist/rc12-qa-unsigned.zip
+          python3 rc12-source/tools/build-release.py dist/rc12-independent.zip
+          cmp dist/rc12-qa-unsigned.zip dist/rc12-independent.zip
+          cp dist/rc12-qa-unsigned.zip dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip
+          (cd dist && sha256sum GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip > RC12-SHA256SUMS.txt)
+          cp .github/RC12-LOCAL-PUBLISH.ps1 dist/RC12-LOCAL-PUBLISH.ps1
+          cp .github/RC12-UI-SMOKE.ps1 dist/RC12-UI-SMOKE.ps1
+          cp .github/RC12-MIGRATION-PREFLIGHT.ps1 dist/RC12-MIGRATION-PREFLIGHT.ps1
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import {inspectReleaseZip} from './rc12-source/app/install-verified.mjs';
+          import {compareVersions} from './rc12-source/app/updater.mjs';
+          if(compareVersions('5.9.0-rc.12','5.9.0-rc.11')!==1)throw Error('RC12 must exceed signed RC11');
+          inspectReleaseZip(fs.readFileSync('dist/rc12-qa-unsigned.zip'),{version:'5.9.0-rc.12'});
           JS
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -82,6 +180,36 @@ jobs:
           name: rc10-candidate-unpublished
           path: dist/rc10-candidate.zip
           if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc11-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist/rc11-qa-unsigned.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc11-local-signing-handoff-UNSIGNED
+          path: |
+            dist/GW2-Account-Companion-v5.9.0-rc.11-All-in-One-Preview.zip
+            dist/RC11-SHA256SUMS.txt
+          if-no-files-found: error
+
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc12-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist/rc12-qa-unsigned.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rc12-unsigned-owner-signing-handoff
+          path: |
+            dist/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip
+            dist/RC12-SHA256SUMS.txt
+            dist/RC12-LOCAL-PUBLISH.ps1
+            dist/RC12-UI-SMOKE.ps1
+            dist/RC12-MIGRATION-PREFLIGHT.ps1
+          if-no-files-found: error
+
 
   windows:
     needs: candidate
@@ -96,6 +224,122 @@ jobs:
         with:
           name: rc10-candidate-source
           path: source
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc11-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc12-qa-unsigned-NOT-FOR-INSTALLATION
+          path: dist
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: rc12-unsigned-owner-signing-handoff
+          path: handoff
+      - name: Verify unsigned RC11 package integrity on Windows without installation
+        shell: powershell
+        run: |
+          node .github/qa-rc11-package-smoke.mjs dist/rc11-qa-unsigned.zip
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+      - name: Verify local-only RC11 owner publish script syntax; never execute publishing
+        shell: powershell
+        run: |
+          $file=(Resolve-Path .github/RC11-LOCAL-PUBLISH.ps1).Path
+          $tokens=$null;$errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$tokens,[ref]$errors) | Out-Null
+          if($errors.Count){$errors | ForEach-Object {Write-Host $_.Message};throw 'RC11 publisher handoff syntax error'}
+          $src=Get-Content -LiteralPath $file -Raw
+          foreach($required in @('PUBLISH RC11','Get-FileHash','-Publish','SigningKeyFile','publisherZip','Copy-Item','copyHash','packageData.version','app-version.json','publisher-public.pem','update-source.json')){
+            if(-not $src.Contains($required)){throw "Missing RC11 local publication safety gate: $required"}
+          }
+      - name: RC11 publisher workspace smoke test without secrets or publication
+        shell: powershell
+        run: |
+          $archive=Join-Path (Get-Location) 'dist/rc11-qa-unsigned.zip'
+          $tmp=Join-Path $env:RUNNER_TEMP 'rc11-publisher-staging-qa'
+          New-Item -ItemType Directory -Path $tmp -Force | Out-Null
+          try {
+            Expand-Archive -LiteralPath $archive -DestinationPath $tmp -Force
+            $root=Join-Path $tmp 'GW2-Account-Companion-v5.9.0-rc.11'
+            $pkg=Get-Content (Join-Path $root 'app/package.json') -Raw | ConvertFrom-Json
+            if($pkg.version -cne '5.9.0-rc.11'){throw 'RC11 package version mismatch'}
+            # These test the actual missing marker and the temporary-only repair contract.
+            $marker=Join-Path $root 'app-version.json'
+            if(Test-Path -LiteralPath $marker){throw 'Unexpected root marker in ZIP; revisit handoff assumptions'}
+            [IO.File]::WriteAllText($marker,(@{version=$pkg.version}|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
+            node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(v.version!=='5.9.0-rc.11')process.exit(1)" $marker
+            if($LASTEXITCODE -ne 0){throw 'Temporary version marker invalid'}
+          }finally{Remove-Item -LiteralPath $tmp -Recurse -Force -ErrorAction SilentlyContinue}
+      - name: RC12 local-only signing handoff safety and syntax (never publish)
+        shell: powershell
+        run: |
+          $path=(Resolve-Path .github/RC12-LOCAL-PUBLISH.ps1).Path
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){throw 'RC12 signing script syntax invalid'}
+          $src=Get-Content -LiteralPath $path -Raw
+          foreach($required in @('5.9.0-rc.12','PUBLISH RC12','publisherZip','copyHash','app-version.json','packageData.version','publisher-public.pem','update-source.json')){
+            if(-not $src.Contains($required)){throw "Missing RC12 fail-closed gate: $required"}
+          }
+      - name: Windows PowerShell 5.1 isolated RC12 GUI smoke parses and never runs update
+        shell: powershell
+        run: |
+          $path=(Resolve-Path .github/RC12-UI-SMOKE.ps1).Path
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile($path,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors | ForEach-Object {Write-Host $_.Message};throw 'RC12 GUI smoke syntax invalid'}
+          $src=Get-Content -LiteralPath $path -Raw
+          foreach($required in @('-WindowStyle Normal','Main','HANDSHAKE OK','-STA','-Child','Start-Process','Windows.Forms.Application')){
+            if($required -eq 'Main'){continue}
+            if(-not $src.Contains($required)){throw "RC12 UI smoke prerequisite missing: $required"}
+          }
+          if($src.Contains('fixed-update.mjs') -or $src.Contains('update.lock') -or $src.Contains('shutdown.request')){
+            throw 'RC12 smoke test must remain isolated from actual updater'
+          }
+      - name: RC12 migration preflight Windows PowerShell 5.1 read-only PASS and STOP tests
+        shell: powershell
+        run: |
+          $preflight=(Resolve-Path .github/RC12-MIGRATION-PREFLIGHT.ps1).Path
+          $tokens=$null;$errors=$null
+          [Management.Automation.Language.Parser]::ParseFile($preflight,[ref]$tokens,[ref]$errors)|Out-Null
+          if($errors.Count){$errors|ForEach-Object {Write-Host $_.Message};throw 'Migration preflight PowerShell syntax invalid'}
+          $fixture=Join-Path $env:RUNNER_TEMP 'rc12-readonly-migration-fixture'
+          foreach($relative in @('app/node_modules','shared/bin','config','bootstrap','updater')){
+            New-Item -ItemType Directory -Path (Join-Path $fixture $relative) -Force|Out-Null
+          }
+          $pkg=(Get-Content source/app/package.json -Raw|ConvertFrom-Json)
+          $pkg.version='5.9.0-rc.10'
+          [IO.File]::WriteAllText((Join-Path $fixture 'app/package.json'),($pkg|ConvertTo-Json -Depth 30),[Text.UTF8Encoding]::new($false))
+          [IO.File]::WriteAllText((Join-Path $fixture 'app-version.json'),'{"version":"5.9.0-rc.10"}')
+          [IO.File]::WriteAllText((Join-Path $fixture 'config/update-source.json'),'{"schema":1,"channel":"preview","manifest_url":"https://raw.githubusercontent.com/Khileyan/gw2-companion-updates/main/preview.json"}')
+          [IO.File]::WriteAllText((Join-Path $fixture 'config/publisher-public.pem'),'test-public-key-presence-only')
+          foreach($relative in @('bootstrap/fixed-update.mjs','bootstrap/Start-Managed.ps1','shared/bin/tunnel-client.exe')){
+            [IO.File]::WriteAllText((Join-Path $fixture $relative),'test-file-exists')
+          }
+          & $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
+          if($LASTEXITCODE -ne 0){throw 'Valid RC10 simulation unexpectedly rejected by read-only migration gate'}
+          [IO.File]::WriteAllText((Join-Path $fixture 'updater/update.lock'),'simulated active transaction')
+          # A failing PowerShell script calls exit 2; run it as a child so the
+          # CI shell survives to assert the *exact* refusal exit code.
+          & "$PSHOME/powershell.exe" -NoProfile -ExecutionPolicy Bypass -File $preflight -PackageZip (Resolve-Path handoff/GW2-Account-Companion-v5.9.0-rc.12-All-in-One-Preview.zip).Path -Checksums (Resolve-Path handoff/RC12-SHA256SUMS.txt).Path -InstallRoot $fixture
+          if($LASTEXITCODE -ne 2){throw 'Active update lock must cause a controlled STOP'}
+          $global:LASTEXITCODE=0 # The simulated refusal was EXPECTED; do not fail the CI step.
+      - name: Windows PowerShell 5.1 RC12 independent progress host regression
+        shell: powershell
+        run: |
+          $dir=Join-Path $env:RUNNER_TEMP 'rc12-staging-syntax'
+          New-Item -ItemType Directory -Path $dir -Force | Out-Null
+          Expand-Archive -LiteralPath (Resolve-Path dist/rc12-qa-unsigned.zip).Path -DestinationPath $dir -Force
+          $root=Join-Path $dir 'GW2-Account-Companion-v5.9.0-rc.12'
+          foreach($rel in @('launcher/GW2-Companion.ps1','bootstrap/Update-Progress.ps1','bootstrap/Start-Managed.ps1')){
+            $target=Join-Path $root $rel
+            $tokens=$null;$errors=$null
+            [System.Management.Automation.Language.Parser]::ParseFile($target,[ref]$tokens,[ref]$errors)|Out-Null
+            if($errors.Count){$errors|ForEach-Object {Write-Host $_.Message};throw "RC12 syntax error: $rel"}
+          }
+          $env:RC12_SOURCE=$root
+          node --test .github/qa-rc12-progress.test.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: PowerShell 5.1 syntax and manual update UI regression
         shell: powershell
         run: |
@@ -108,6 +352,8 @@ jobs:
           & ./.github/rc9-tray-test.ps1 -Launcher (Resolve-Path source/launcher/GW2-Companion.ps1).Path
           if(-not $?){exit 1}
           node --test source/tests/rc10-stability.test.mjs
+          if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
+          node --test source/tests/qa-stale-journal.test.mjs source/tests/qa-exclusive-update-lock.test.mjs source/tests/qa-launcher-process-identity.test.mjs source/tests/qa-recovery-lock.test.mjs
           if($LASTEXITCODE -ne 0){exit $LASTEXITCODE}
       - name: Windows update/rollback safety regressions
         shell: powershell
