@@ -1,11 +1,11 @@
 {
   "schema": 2,
-  "version": "5.9.0-rc.23.1",
+  "version": "5.9.0-rc.24",
   "channel": "preview",
-  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/784924792",
-  "sha256": "8daac88176c22441ffa216e5e23d34f3810b15e44cb80dee4c95ec459ea9dddd",
-  "bytes": 3463698,
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/785607191",
+  "sha256": "c602f2bb2133a9e208b59e56258006f725faa08618d248bc1f91548bf1179005",
+  "bytes": 3476013,
   "min_updater_version": "5.9.0-rc.7",
-  "changelog": "RC23.1: Synchronisierungsanzeige beim Windows-Start sowie Legendärpfade und Lagerort-Auswahl im gemeinsamen Dialog korrigiert.",
-  "signature": "7t4hxuBIcI+UZEObzybBYc5GvQUJlzUQpFhdh49p7atWi5EX1rsqpFA88CrPVqVEWFRDqI+1LZnGo9PgC28nDw=="
+  "changelog": "RC24: Account-Platzansicht, Erfolge und Belohnungspfade, Bifröst-Beschaffung, gemeinsame Gegenstandsdetails und Status des Startabgleichs.",
+  "signature": "xo341JtipJ8KfJE72m3M270k6QK6k2N+l1mSDmO4YzoAxUHRNvXYAbBGK4golQVbXAAM7nw97yFgdb9r8z0vAQ=="
 }
