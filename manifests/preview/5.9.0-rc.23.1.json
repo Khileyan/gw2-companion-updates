@@ -1,0 +1,11 @@
+{
+  "schema": 2,
+  "version": "5.9.0-rc.23.1",
+  "channel": "preview",
+  "download_url": "https://api.github.com/repos/Khileyan/gw2-companion-updates/releases/assets/784924792",
+  "sha256": "8daac88176c22441ffa216e5e23d34f3810b15e44cb80dee4c95ec459ea9dddd",
+  "bytes": 3463698,
+  "min_updater_version": "5.9.0-rc.7",
+  "changelog": "RC23.1: Synchronisierungsanzeige beim Windows-Start sowie Legendärpfade und Lagerort-Auswahl im gemeinsamen Dialog korrigiert.",
+  "signature": "7t4hxuBIcI+UZEObzybBYc5GvQUJlzUQpFhdh49p7atWi5EX1rsqpFA88CrPVqVEWFRDqI+1LZnGo9PgC28nDw=="
+}
